@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/shanegirolamo/.claude/**)",
+      "mcp__trello__addCard",
+      "Bash(curl -s \"https://api.trello.com/1/boards/6976515f524dc8195876a02e/lists?key=baf2640dce31b0b16e24ce33a1f1c202&token=ATTA3fd0621f1d049c0e2ca08fbb1f3619f87e827c072426f76ce82e944b386ef0e37523809E\")",
+      "Bash(python3 -c \"import json,sys; lists=json.load\\(sys.stdin\\); [print\\(l['id'], l['name']\\) for l in lists]\")",
+      "Bash(curl -s \"https://api.trello.com/1/boards/6976515f524dc8195876a02e/cards?key=baf2640dce31b0b16e24ce33a1f1c202&token=ATTA3fd0621f1d049c0e2ca08fbb1f3619f87e827c072426f76ce82e944b386ef0e37523809E&fields=name,desc,idList,labels\")",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s \"https://api.trello.com/1/boards/6a2a036ca3608273a28a6431/labels?key=baf2640dce31b0b16e24ce33a1f1c202&token=ATTA3fd0621f1d049c0e2ca08fbb1f3619f87e827c072426f76ce82e944b386ef0e37523809E\")",
+      "Bash(python3 -c \"import json,sys; labels=json.load\\(sys.stdin\\); [print\\(l['id'], l['color'], repr\\(l['name']\\)\\) for l in labels]\")",
+      "Bash(curl -s -X PUT 'https://api.trello.com/1/labels/6a2a036ca3608273a28a6457?key=baf2640dce31b0b16e24ce33a1f1c202&token=ATTA3fd0621f1d049c0e2ca08fbb1f3619f87e827c072426f76ce82e944b386ef0e37523809E' -d name=Epic)",
+      "Bash(curl -s -X PUT 'https://api.trello.com/1/labels/6a2a036ca3608273a28a6452?key=baf2640dce31b0b16e24ce33a1f1c202&token=ATTA3fd0621f1d049c0e2ca08fbb1f3619f87e827c072426f76ce82e944b386ef0e37523809E' -d name=Spike+story)",
+      "Bash(curl -s -X PUT 'https://api.trello.com/1/labels/6a2a036ca3608273a28a6453?key=baf2640dce31b0b16e24ce33a1f1c202&token=ATTA3fd0621f1d049c0e2ca08fbb1f3619f87e827c072426f76ce82e944b386ef0e37523809E' -d name=User+story)",
+      "Bash(curl -s -X PUT 'https://api.trello.com/1/labels/6a2a036ca3608273a28a6455?key=baf2640dce31b0b16e24ce33a1f1c202&token=ATTA3fd0621f1d049c0e2ca08fbb1f3619f87e827c072426f76ce82e944b386ef0e37523809E' -d name=Bug)",
+      "mcp__trello__archiveCard",
+      "Bash(curl -s \"https://api.trello.com/1/lists/6a2a036ca3608273a28a644c/cards?key=baf2640dce31b0b16e24ce33a1f1c202&token=ATTA3fd0621f1d049c0e2ca08fbb1f3619f87e827c072426f76ce82e944b386ef0e37523809E&fields=id,name,labels\")",
+      "Bash(python3 -c \"import json,sys; cards=json.load\\(sys.stdin\\); [print\\(c['id'], '|', c['name']\\) for c in cards]\")",
+      "Bash(curl -s \"https://api.trello.com/1/lists/6a2a036ca3608273a28a644b/cards?key=baf2640dce31b0b16e24ce33a1f1c202&token=ATTA3fd0621f1d049c0e2ca08fbb1f3619f87e827c072426f76ce82e944b386ef0e37523809E&fields=id,name,labels\")",
+      "Bash(python3 -c \"import json,sys; cards=json.load\\(sys.stdin\\); [print\\(c['id'], '|', c['name'], '|', [l['color'] for l in c['labels']]\\) for c in cards]\")",
+      "Read(//private/tmp/**)",
+      "Bash(python3 add_checklists.py)",
+      "Bash(curl -s \"https://api.trello.com/1/lists/6a2a036ca3608273a28a644c/cards?key=baf2640dce31b0b16e24ce33a1f1c202&token=ATTA3fd0621f1d049c0e2ca08fbb1f3619f87e827c072426f76ce82e944b386ef0e37523809E&fields=id,name,shortUrl\")",
+      "Bash(python3 -c \"import json,sys; [print\\(c['id'],'|',c['shortUrl'],'|',c['name']\\) for c in json.load\\(sys.stdin\\)]\")",
+      "Bash(curl -s \"https://api.trello.com/1/lists/6a2a036ca3608273a28a644b/cards?key=baf2640dce31b0b16e24ce33a1f1c202&token=ATTA3fd0621f1d049c0e2ca08fbb1f3619f87e827c072426f76ce82e944b386ef0e37523809E&fields=id,name,shortUrl,labels\")",
+      "Bash(python3 -c \"import json,sys; cards=json.load\\(sys.stdin\\); [print\\(c['id'],'|',c['shortUrl'],'|',c['name'],'|',[l['color'] for l in c['labels']]\\) for c in cards]\")"
+    ]
+  }
+}
