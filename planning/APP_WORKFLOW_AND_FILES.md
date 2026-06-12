@@ -41,7 +41,7 @@ Deals represent investment opportunities. A company may have multiple deals over
 
 ### Diligence And Rubric
 
-Every active investment opportunity gets diligence workflow tracking and a screening rubric. The rubric stores knockout gates, 15 sub-scores, weighted category scores, and a computed composite score. Ritchie may draft rubric scores, but human approval is required before sensitive recommendations or rubric updates are committed.
+Every active investment opportunity gets diligence workflow tracking and a screening rubric. The rubric stores knockout gates, 15 sub-scores, weighted category scores, and a computed composite score. Rubric writes are blocked for Ritchie by default; the team can authorize the rubric tool in the runtime policy if they want Ritchie writing drafted scores directly.
 
 ### Funds, Investments, And Portfolio Metrics
 
@@ -69,7 +69,7 @@ Keyword search uses Postgres full-text search. Semantic search uses pgvector wit
 
 ### Ritchie Agent Integration
 
-Ritchie is treated as a first-class actor. The backend exposes typed tools, an approval policy, RAG context, and MCP/SSE integration. Trusted writes are audited and idempotent. Sensitive writes become proposals, are emailed to humans for approval or rejection, and expire if not actioned.
+Ritchie is treated as a first-class actor. The backend exposes typed tools, a binary authorization policy, RAG context, and MCP (Streamable HTTP) integration. Every tool/field is either authorized — executed directly, audited, and idempotent — or blocked, in which case the call is rejected and logged until a human updates the policy setting. There is no per-change approval or proposal workflow.
 
 ## File And Directory Reference
 
@@ -79,10 +79,11 @@ Ritchie is treated as a first-class actor. The backend exposes typed tools, an a
 | --- | --- |
 | `.editorconfig` | Keeps indentation, line endings, and formatting consistent across editors. |
 | `.gitignore` | Excludes generated files, secrets, local environments, and build artifacts from Git. |
+| `.github/workflows/ci.yml` | GitHub Actions CI: ruff, mypy, backend tests with coverage, and frontend lint/typecheck/tests on every push and PR. |
 | `Makefile` | Provides shortcuts for common tasks such as dev, test, migrate, lint, and format. |
 | `README.md` | High-level project overview, architecture summary, and getting-started guide. |
-| `PLAN v1.md` | Product and technical plan for the v1 CRM. |
-| `1829 Ventures Screening Rubric.pdf` | Canonical screening rubric reference for diligence and Ritchie rubric drafting. |
+| `planning/PLAN_v1.md` | Product and technical plan for the v1 CRM. |
+| `planning/1829 Ventures Screening Rubric.pdf` | Canonical screening rubric reference for diligence and Ritchie rubric drafting. |
 | `Dealroom Data (6.10.26).csv` | Seed/source dataset exported from Dealroom. |
 | `.env.example` | Example environment variables for local setup. |
 | `docker-compose.yml` | Local development stack: API, frontend, Postgres/PostGIS/pgvector, Redis, MinIO, worker, and nginx as needed. |
@@ -112,6 +113,7 @@ Ritchie is treated as a first-class actor. The backend exposes typed tools, an a
 | `backend/scripts/seed_funds.py` | Creates initial fund records for Beta and Fund I. |
 | `backend/scripts/promote_admin.py` | Optional future helper for role testing; v1 does not distinguish admin and normal user page access. |
 | `backend/scripts/rotate_agent_key.py` | Rotates Ritchie's scoped API key. |
+| `backend/scripts/backup_db.sh` | Nightly `pg_dump` backup: compresses dumps, retains 14 days, copies each dump off the VM. |
 
 ### `backend/tests/`
 
@@ -126,12 +128,12 @@ Coverage note: code coverage should be tracked as part of the test workflow. Bac
 | `backend/tests/unit/test_dealroom_csv.py` | Tests CSV metadata row detection, parsing, splitting, and mapping. |
 | `backend/tests/unit/test_agent_tools.py` | Tests Ritchie tool definitions, permission tiers, and tool construction. |
 | `backend/tests/unit/test_agent_contracts.py` | Confirms tool JSON Schemas match the Pydantic models they map to. |
-| `backend/tests/unit/test_approval_service.py` | Tests proposal lifecycle rules. |
+| `backend/tests/unit/test_agent_policy.py` | Tests binary authorized/blocked policy enforcement and runtime policy updates. |
 | `backend/tests/unit/test_idempotency.py` | Tests stable idempotency keys and duplicate-write prevention. |
 | `backend/tests/integration/conftest.py` | Integration-test fixtures for DB-backed flows. |
 | `backend/tests/integration/test_dealroom_import.py` | Tests upload, preview, conflict review, and commit behavior. |
 | `backend/tests/integration/test_gmail_ingestion.py` | Tests forwarded email ingestion into CRM interactions. |
-| `backend/tests/integration/test_agent_proposals.py` | Tests Ritchie proposal creation, approval, rejection, and audit behavior. |
+| `backend/tests/integration/test_agent_policy_flow.py` | Tests blocked tool calls being rejected and logged, runtime authorization changes, and audit behavior. |
 | `backend/tests/integration/test_agent_replay.py` | Replays recorded agent payloads without live AI calls. |
 | `backend/tests/integration/test_analytics.py` | Tests dashboard and analytics query behavior. |
 | `backend/tests/fixtures/` | Stores recorded agent job payloads and other test fixtures. |
@@ -149,7 +151,7 @@ Coverage note: code coverage should be tracked as part of the test workflow. Bac
 | Path | Purpose |
 | --- | --- |
 | `backend/app/api/__init__.py` | Marks the API package. |
-| `backend/app/api/middleware.py` | Adds request ID injection and rate limiting by role and endpoint tier. |
+| `backend/app/api/middleware.py` | Adds request ID injection and Redis token-bucket rate limiting by role and endpoint tier. |
 | `backend/app/api/router.py` | Single include point for all API route modules. |
 | `backend/app/api/routes/__init__.py` | Marks the routes package. |
 | `backend/app/api/routes/auth.py` | Google OAuth login, callback, session refresh, logout, and current user endpoints. |
@@ -164,7 +166,7 @@ Coverage note: code coverage should be tracked as part of the test workflow. Bac
 | `backend/app/api/routes/documents.py` | Document metadata, presigned uploads, and links to companies/deals/people. |
 | `backend/app/api/routes/email.py` | Gmail-related email ingestion and review endpoints. |
 | `backend/app/api/routes/imports.py` | Dealroom upload, preview, conflict review, commit, and skipped-row inspection. |
-| `backend/app/api/routes/agent.py` | Ritchie `/agent`, `/agent/context`, and `/agent/audit` endpoints. |
+| `backend/app/api/routes/agent.py` | Ritchie `/agent`, `/agent/context`, `/agent/audit`, and authorization policy endpoints. |
 | `backend/app/api/routes/deal_statuses.py` | CRUD for configurable pipeline stages; no v1 admin-only page distinction. |
 | `backend/app/api/routes/analytics.py` | Pipeline, portfolio, source, sector, interaction, thesis, and agent analytics endpoints. |
 
@@ -173,7 +175,7 @@ Coverage note: code coverage should be tracked as part of the test workflow. Bac
 | Path | Purpose |
 | --- | --- |
 | `backend/app/models/__init__.py` | Imports/registers SQLAlchemy models for migrations and metadata. |
-| `backend/app/models/base.py` | Declarative base, timestamps, IDs, and shared model helpers. |
+| `backend/app/models/base.py` | Declarative base, timestamps, IDs, soft-delete `archived_at`, and shared model helpers. |
 | `backend/app/models/user.py` | Authenticated human users and Ritchie's agent identity/role. |
 | `backend/app/models/company.py` | Company profile, CRM source-of-truth fields, statuses, completeness, and Dealroom IDs. |
 | `backend/app/models/person.py` | Founder, alumni, LP, advisor, faculty, co-investor, and operator records. |
@@ -192,10 +194,10 @@ Coverage note: code coverage should be tracked as part of the test workflow. Bac
 | `backend/app/models/tag.py` | User-created tags, protected system tags, archived tags, and pass reason tags. |
 | `backend/app/models/import_batch.py` | Import-level metadata such as source, upload user, status, summary counts, and commit time. |
 | `backend/app/models/import_row.py` | Raw row payloads, per-field provenance, row status, conflicts, skipped reasons, and matches. |
-| `backend/app/models/audit_log.py` | Human/system audit entries for material CRM changes. |
+| `backend/app/models/audit_log.py` | Audit entries for every CRM create, update, and archive, with actor, timestamp, and old/new values. |
 | `backend/app/models/ai_audit_log.py` | Ritchie intent, trusted writes, old/new values, source, confidence, idempotency, and result. |
-| `backend/app/models/agent_event_log.py` | Events emitted to Ritchie, processing status, payload hash, and response summary. |
-| `backend/app/models/agent_proposal.py` | Approval-required Ritchie proposals, diffs, rationale, reviewer, status, and expiration. |
+| `backend/app/models/agent_event_log.py` | Events emitted to Ritchie, processing status, payload hash, response summary, and `policy_blocked` rejections. |
+| `backend/app/models/agent_policy.py` | Runtime authorization policy records: tool/field, authorized or blocked, updated by, updated at. |
 | `backend/app/models/notification.py` | In-app/API notifications and read-state support. |
 
 ### `backend/app/schemas/`
@@ -219,7 +221,7 @@ Coverage note: code coverage should be tracked as part of the test workflow. Bac
 | `backend/app/schemas/document.py` | Document metadata and presigned upload schemas. |
 | `backend/app/schemas/import_batch.py` | Import upload, preview, commit, and batch detail schemas. |
 | `backend/app/schemas/import_row.py` | Import preview row, conflict diff, commit/skip status, and provenance schemas. |
-| `backend/app/schemas/agent.py` | Ritchie tool definitions, context requests, proposal schemas, and audit read models. |
+| `backend/app/schemas/agent.py` | Ritchie tool definitions, context requests, authorization policy schemas, and audit read models. |
 | `backend/app/schemas/analytics.py` | Dashboard and analytics response schemas. |
 
 ### `backend/app/repositories/`
@@ -256,8 +258,8 @@ Coverage note: code coverage should be tracked as part of the test workflow. Bac
 | `backend/app/services/document_service.py` | Document metadata, storage coordination, and presigned upload flow. |
 | `backend/app/services/dealroom_import_service.py` | Dealroom preview, dedupe, conflict resolution, partial commit, and provenance rules. |
 | `backend/app/services/gmail_ingestion_service.py` | Forwarded email normalization, matching, interaction creation, and unmatched review handling. |
-| `backend/app/services/agent_service.py` | Trusted-write routing, approval-required proposal creation, and Ritchie-facing service behavior. |
-| `backend/app/services/approval_service.py` | Proposal lifecycle, expiration, approve/reject actions, and signed email links. |
+| `backend/app/services/agent_service.py` | Authorized-write routing, policy-gate enforcement, and Ritchie-facing service behavior. |
+| `backend/app/services/agent_policy_service.py` | Runtime authorization policy reads and updates — audited, immediate effect, no restart required. |
 | `backend/app/services/audit_service.py` | Human/system/AI audit recording and audit view support. |
 | `backend/app/services/notification_service.py` | Channel-agnostic notification creation and dispatch orchestration. |
 | `backend/app/services/search_service.py` | Keyword search, semantic search, embedding lookup, and context retrieval. |
@@ -269,9 +271,9 @@ Coverage note: code coverage should be tracked as part of the test workflow. Bac
 | --- | --- |
 | `backend/app/agent/__init__.py` | Marks the CRM-side agent package. |
 | `backend/app/agent/tools.py` | Typed Ritchie tool definitions with JSON Schema and permission tier tags. |
-| `backend/app/agent/policy.py` | Runtime-configurable trusted/approval-required policy. |
+| `backend/app/agent/policy.py` | Runtime-configurable binary authorized/blocked policy. |
 | `backend/app/agent/context.py` | RAG context assembly using embeddings and pgvector top-K retrieval. |
-| `backend/app/agent/mcp_server.py` | SSE MCP endpoint consumed by kernelbot. |
+| `backend/app/agent/mcp_server.py` | Streamable HTTP MCP endpoint consumed by kernelbot (SSE is deprecated in the MCP spec). |
 
 ### `backend/app/workers/`
 
@@ -284,7 +286,7 @@ Coverage note: code coverage should be tracked as part of the test workflow. Bac
 | `backend/app/workers/jobs/gmail_jobs.py` | Secondary processing after kernelbot Gmail ingest, including embeddings and task triggers. |
 | `backend/app/workers/jobs/agent_jobs.py` | CRM event fanout to Ritchie/kernelbot and agent result processing. |
 | `backend/app/workers/jobs/embedding_jobs.py` | Local sentence-transformer embedding generation and pgvector writes. |
-| `backend/app/workers/jobs/notification_jobs.py` | Daily digests, task assignment notices, proposal emails, and due-date reminders. |
+| `backend/app/workers/jobs/notification_jobs.py` | Daily digests, task assignment notices, and due-date reminders. |
 | `backend/app/workers/jobs/analytics_jobs.py` | Background analytics refreshes or heavy dashboard aggregation work. |
 
 ### `backend/app/integrations/`
@@ -306,9 +308,9 @@ Coverage note: code coverage should be tracked as part of the test workflow. Bac
 | --- | --- |
 | `backend/app/core/__init__.py` | Marks the core package. |
 | `backend/app/core/config.py` | Environment settings using Pydantic BaseSettings. |
-| `backend/app/core/database.py` | SQLAlchemy engine, session factory, and `get_session`. |
+| `backend/app/core/database.py` | Dual SQLAlchemy engines: async (asyncpg) for API request handlers, sync (psycopg2) for Celery workers and Alembic, with matching session factories and `get_session`. |
 | `backend/app/core/dependencies.py` | FastAPI dependency providers for DB sessions, current user, permissions, and services. |
-| `backend/app/core/security.py` | JWT signing/verification, passwordless auth helpers, signed links, and API key hashing. |
+| `backend/app/core/security.py` | JWT signing/verification (PyJWT), passwordless auth helpers, and API key hashing. |
 | `backend/app/core/permissions.py` | Role constants and future permission matrix. |
 | `backend/app/core/idempotency.py` | Idempotency key generation and duplicate-write checks. |
 | `backend/app/core/audit.py` | Audit context helpers and decorators. |
@@ -353,7 +355,7 @@ Coverage note: code coverage should be tracked as part of the test workflow. Bac
 | `frontend/src/api/interactionsApi.ts` | Interaction API calls. |
 | `frontend/src/api/documentsApi.ts` | Document metadata and upload API calls. |
 | `frontend/src/api/tasksApi.ts` | Task API calls. |
-| `frontend/src/api/agentApi.ts` | Ritchie proposal, context, and audit API calls. |
+| `frontend/src/api/agentApi.ts` | Ritchie policy, context, and audit API calls. |
 | `frontend/src/api/importsApi.ts` | Dealroom import API calls. |
 | `frontend/src/api/analyticsApi.ts` | Dashboard/analytics API calls. |
 
@@ -361,7 +363,7 @@ Coverage note: code coverage should be tracked as part of the test workflow. Bac
 
 | Path | Purpose |
 | --- | --- |
-| `frontend/src/types/index.ts` | Re-exports domain types, eventually generated from OpenAPI. |
+| `frontend/src/types/index.ts` | Re-exports domain types, generated from the FastAPI OpenAPI spec via `openapi-typescript` from day one. |
 | `frontend/src/types/common.ts` | Shared response/error/sort/pagination types. |
 | `frontend/src/types/company.ts` | Company frontend types. |
 | `frontend/src/types/person.ts` | Person/contact frontend types. |
@@ -371,7 +373,7 @@ Coverage note: code coverage should be tracked as part of the test workflow. Bac
 | `frontend/src/types/interaction.ts` | Interaction frontend types. |
 | `frontend/src/types/document.ts` | Document frontend types. |
 | `frontend/src/types/task.ts` | Task frontend types. |
-| `frontend/src/types/agent.ts` | Agent proposal, tool definition, audit entry, and context types. |
+| `frontend/src/types/agent.ts` | Agent policy, tool definition, audit entry, and context types. |
 | `frontend/src/types/analytics.ts` | Analytics/dashboard frontend types. |
 
 ### `frontend/src/hooks/`
@@ -382,14 +384,14 @@ Coverage note: code coverage should be tracked as part of the test workflow. Bac
 | `frontend/src/hooks/useCompanies.ts` | Company query/mutation hooks. |
 | `frontend/src/hooks/useDeals.ts` | Deal and pipeline query/mutation hooks. |
 | `frontend/src/hooks/useTasks.ts` | Task query/mutation hooks. |
-| `frontend/src/hooks/useAgent.ts` | Ritchie proposal/context/audit hooks. |
+| `frontend/src/hooks/useAgent.ts` | Ritchie policy/context/audit hooks. |
 
 ### `frontend/src/lib/`
 
 | Path | Purpose |
 | --- | --- |
 | `frontend/src/lib/utils.ts` | Shared UI utilities such as `cn`, date formatting, and currency formatting. |
-| `frontend/src/lib/validators.ts` | Zod schemas mirroring backend Pydantic schemas. |
+| `frontend/src/lib/validators.ts` | Zod schemas for client-side form validation only; domain types come from OpenAPI codegen. |
 | `frontend/src/lib/constants.ts` | UI-facing labels, sectors, status display values, and copy constants. |
 
 ### `frontend/src/components/`
@@ -412,9 +414,9 @@ Coverage note: code coverage should be tracked as part of the test workflow. Bac
 | `frontend/src/components/tasks/TaskCard.tsx` | Task card/list item. |
 | `frontend/src/components/tasks/TaskForm.tsx` | Task creation/edit form. |
 | `frontend/src/components/tasks/index.ts` | Barrel export for task components. |
-| `frontend/src/components/proposals/ProposalCard.tsx` | Ritchie proposal card. |
-| `frontend/src/components/proposals/ProposalQueue.tsx` | Ritchie proposal review queue. |
-| `frontend/src/components/proposals/index.ts` | Barrel export for proposal components. |
+| `frontend/src/components/agent/AgentAuditLog.tsx` | Ritchie activity feed: authorized writes and blocked attempts. |
+| `frontend/src/components/agent/PolicyPanel.tsx` | Authorized/blocked toggles per Ritchie tool/field. |
+| `frontend/src/components/agent/index.ts` | Barrel export for agent components. |
 
 ### `frontend/src/pages/`
 
@@ -433,14 +435,14 @@ Coverage note: code coverage should be tracked as part of the test workflow. Bac
 | Path | Purpose |
 | --- | --- |
 | `nginx/nginx.conf` | Serves the frontend and proxies `/api/*` to FastAPI. |
-| `docker/postgres/` | Postgres/PostGIS/pgvector initialization files, if needed. |
+| `docker/postgres/` | Postgres init: `init.sql` enables the PostGIS and pgvector extensions on first start, before the first migration. |
 | `docker/redis/` | Redis local configuration, if needed. |
-| `docker/minio/` | MinIO local configuration, if needed. |
+| `docker/minio/` | MinIO init: creates the default buckets on first startup. |
 
 ## Boundaries To Preserve
 
 - Routes should handle HTTP only.
-- Services should enforce business logic, permissions, non-overwrite rules, workflow transitions, approvals, and auditing.
+- Services should enforce business logic, permissions, non-overwrite rules, workflow transitions, the agent authorization policy, and auditing.
 - Repositories should isolate SQLAlchemy queries.
 - Integrations should wrap external systems.
 - Workers should run slow or asynchronous work outside request/response.

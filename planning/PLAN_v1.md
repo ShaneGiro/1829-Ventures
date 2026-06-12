@@ -15,14 +15,11 @@ A persistent AI agent — **Ritchie** — is a first-class backend consumer from
 - Access model: all authenticated human users have the same page access in v1. No admin-only page experience is planned for v1.
 - Diligence checklist completion is open to any internal user in v1 because the team is currently small; the model should preserve actor/timestamp history so stricter permissions can be added later.
 - Source of truth: manually curated 1829 CRM fields win over imported or AI-derived fields.
-- Ritchie cannot overwrite a human-curated field without approval or explicit permission.
-- Ritchie's approval-required vs trusted-write policy must be configurable so fields/actions can move between tiers without code rewrites.
-- Ritchie's approval policy should be configurable and audited. In v1, if policy editing is exposed at all, all authenticated human users have the same access model; stricter admin-only control is deferred.
-- Ritchie approval policy changes take effect immediately without restart or redeploy.
-- Ritchie approval policy is field-level for record writes, with fields grouped by tool/action so admins can configure an entire tool/action at once when needed.
-- Auditability is a core product requirement: every material manual, import, and AI change should be easy to inspect.
-- Human edits are audited but not approval-gated in v1; approval workflows apply only to Ritchie.
-- Approval workflow infrastructure should be designed so future versions can apply approval policies by actor or user type, even though v1 uses approvals only for Ritchie.
+- Ritchie cannot write a human-curated field unless the authorization policy explicitly allows it.
+- Ritchie's authorization policy is strictly binary: every tool/field is either `authorized` (Ritchie executes it directly, fully audited) or `blocked` (Ritchie can never do it until a human updates the policy setting). There is no approval queue, proposal workflow, or per-change human review.
+- The authorization policy must be runtime-configurable so fields/actions can move between `authorized` and `blocked` without code rewrites; changes take effect immediately without restart or redeploy and are themselves audited. In v1, if policy editing is exposed at all, all authenticated human users have the same access model; stricter admin-only control is deferred.
+- The policy is field-level for record writes, with fields grouped by tool/action so an entire tool/action can be toggled at once when needed.
+- Auditability is a core product requirement: every change to the database — manual, import, system, or AI — is recorded with actor, timestamp, old value, and new value.
 - Manual company/deal management is the first core workflow; Dealroom import, Gmail sync, and Ritchie automation enrich that foundation.
 - Companies actively managed by 1829 are assumed to have an RIT founder or RIT core employee, so users should not be forced to re-enter redundant RIT nexus fields on every company.
 - Pipeline model: dual status tracking:
@@ -48,10 +45,12 @@ A persistent AI agent — **Ritchie** — is a first-class backend consumer from
 ## Core Backend
 - Scaffold FastAPI with:
   - SQLAlchemy 2.x models.
+  - Dual database engines in `core/database.py`: an async engine (asyncpg) with an async session factory for FastAPI request handlers, and a sync engine (psycopg2) with a sync session factory for Celery workers and Alembic. Workers never use the async engine.
   - Alembic migrations.
   - Pydantic schemas.
   - Postgres as canonical database.
   - PostGIS for map/geography queries.
+  - `docker/postgres/init.sql` enables the `postgis` and `vector` extensions on first container start, before the first Alembic migration runs; `docker/minio/` init creates the default buckets on first startup.
   - Redis + Celery/RQ for background work.
   - Docker Compose for API, Postgres, Redis, and worker.
 - Use a service-layer architecture:
@@ -77,7 +76,7 @@ A persistent AI agent — **Ritchie** — is a first-class backend consumer from
   - V1 company completeness tracks website, description, sector, location, primary contact, relationship status, and tags.
   - Company completeness is exposed as both a percentage and a missing-field checklist.
   - Ritchie can directly fill low-risk company completeness fields when confidence is high, with source/confidence provenance.
-  - Once a human edits a field, Ritchie can suggest or flag conflicting evidence, but cannot overwrite the human value without approval or explicit permission.
+  - Once a human edits a field, Ritchie can suggest or flag conflicting evidence, but cannot overwrite the human value unless that field is explicitly authorized for Ritchie in the runtime policy.
   - Deal diligence and rubric fields do not count toward company profile completeness because they belong to specific investment opportunities.
 - People:
   - Founders, alumni, LP contacts, advisors, faculty experts, co-investors, operators.
@@ -112,7 +111,7 @@ A persistent AI agent — **Ritchie** — is a first-class backend consumer from
     - Deal Dynamics: ×2 (max 10). Sub-criteria: syndicate strength, valuation discipline.
   - Score thresholds: 80–100 → move to deep diligence ("Head & Hands" winner); 70–79 → hold, assess fixability; below 70 → pass.
   - The data model stores individual sub-category scores (15 fields) and computes the composite automatically. Sub-category scores drive per-section breakdowns visible on the deal view.
-  - Ritchie has a dedicated `vc-screening` skill that drafts rubric scores from pitch decks, intro emails, and Dealroom data. Drafted scores are submitted as proposals (human approval required before saving). Low-confidence sub-scores are flagged for human review. The rubric PDF (`1829 Ventures Screening Rubric.pdf` in the repo root) is the canonical reference for this skill.
+  - Ritchie has a dedicated `vc-screening` skill that drafts rubric scores from pitch decks, intro emails, and Dealroom data. Rubric score writes are `blocked` in the authorization policy by default; Ritchie can only write drafted scores if the team explicitly authorizes the rubric tool. Drafted scores carry confidence and source provenance, and low-confidence sub-scores are flagged for human review. The rubric PDF (`planning/1829 Ventures Screening Rubric.pdf`) is the canonical reference for this skill. The rubric PDF (`1829 Ventures Screening Rubric.pdf` in the repo root) is the canonical reference for this skill.
 - Funds:
   - First-class entity. Current funds: Beta and Fund I.
   - Fields: name, fund number/identifier, vintage year, committed capital, status (active/closed).
@@ -142,11 +141,13 @@ A persistent AI agent — **Ritchie** — is a first-class backend consumer from
   - V1 task email digests send at 9:00 AM America/New_York.
 - Imports and provenance:
   - Import batches, raw source rows, field-level source metadata, confidence, actor, timestamp.
+- Deletion and archival:
+  - Core entities (companies, people, deals, interactions, documents, tasks) are soft-deleted via an `archived_at` timestamp — never hard-deleted — so audit history, import provenance, and foreign keys stay intact.
 - System audit log:
-  - Material manual changes to companies, contacts, deals, diligence, investments, rubric scores, statuses, tags, and portfolio metrics store actor, timestamp, old value, new value, and reason/context when available.
+  - Every create, update, and archive across companies, contacts, deals, diligence, investments, rubric scores, statuses, tags, tasks, documents, and portfolio metrics stores actor, timestamp, old value, new value, and reason/context when available. Every change to the database is timestamped and logged, regardless of whether the actor is a human, an import, the system, or Ritchie.
   - Audit history is exposed both locally on company/deal pages and globally through an audit view. In v1, any authenticated human user can access the same pages.
 - AI audit:
-  - Agent actions, trusted writes, proposed sensitive changes, source emails/documents/imports, rollback metadata.
+  - Agent actions, authorized writes, blocked attempts, source emails/documents/imports, rollback metadata.
 - Agent event log:
   - Every event emitted to Ritchie: type, payload hash, timestamp, processing status, agent response summary.
 
@@ -191,6 +192,7 @@ A persistent AI agent — **Ritchie** — is a first-class backend consumer from
   - kernelbot already has a working Gmail IMAP IDLE listener (`docker/gmail/`) that watches Ritchie's inbox. No additional Gmail API work is required on the CRM backend side — kernelbot handles inbound email detection and enqueues a job when a forwarded email arrives.
   - When a forwarded email arrives, Ritchie parses the original email content from the forwarded message body, extracts sender, recipient, date, subject, and content, and attempts to match it to existing companies/people/deals via deterministic matching (email domain, known contact addresses) plus AI-assisted fuzzy matching.
   - Matched emails are stored as CRM interactions with provenance (forwarded by which team member, original sender/recipient, timestamp).
+  - The raw forwarded message is always stored before any parsing begins. Parse failures (sender/subject/date/content extraction) route the email to the review queue just like match failures — an email is never silently dropped because a mail client formatted the forward unexpectedly.
   - Unmatched emails land in a review queue for a human to link manually.
   - Attachment metadata from forwarded emails is captured; attachments themselves are stored in MinIO if below a size threshold.
 - Dealroom CSV:
@@ -226,7 +228,7 @@ A persistent AI agent — **Ritchie** — is a first-class backend consumer from
   - kernelbot already has: Gmail IMAP IDLE listener (watches Ritchie's inbox — the forwarding workflow is pre-built), Slack Socket Mode listener, Google Calendar poller, WhatsApp listener, a context-search MCP server (kernelbot-semble, Python, port 8077), and Airtable MCP for data storage. The CRM backend replaces the Airtable dependency.
   - v1 inbound integration: Gmail only. Google Calendar → interaction sync is deferred to v2 (same queue-driven pattern, additive change). WhatsApp is not used and will not be integrated.
   - Claude model: claude-sonnet-4-6 (already configured in kernelbot; routing to haiku for routine triggers is already in the queue protocol).
-  - **Integration model:** The CRM backend exposes the `/agent` API endpoints as an **MCP server** — kernelbot is MCP-native, and one-shots call CRM tools via MCP (`mcp__crm__*`) rather than raw HTTP. A `"crm"` entry is added to kernelbot's `conf/mcp.json` pointing at the CRM's MCP endpoint.
+  - **Integration model:** The CRM backend exposes the `/agent` API endpoints as an **MCP server** — kernelbot is MCP-native, and one-shots call CRM tools via MCP (`mcp__crm__*`) rather than raw HTTP. A `"crm"` entry is added to kernelbot's `conf/mcp.json` pointing at the CRM's MCP endpoint. The MCP server uses the **Streamable HTTP transport** in v1 (SSE is deprecated in the MCP spec); the kernelbot `"crm"` entry is configured for streamable HTTP to match.
   - **CRM → kernelbot triggers:** When the CRM needs to trigger kernelbot (e.g., stale pipeline event, new import), the backend writes a JSON envelope to kernelbot's queue volume directly, or via a lightweight enqueue HTTP call.
   - **kernelbot → CRM writes:** kernelbot one-shots authenticate with the `agent`-role API key and call CRM MCP tools. Every write is attributed to Ritchie as a named actor.
   - Provide a dedicated `/agent` API with a scoped `agent`-role API key. Ritchie authenticates as a named actor — every write is attributable.
@@ -240,7 +242,7 @@ A persistent AI agent — **Ritchie** — is a first-class backend consumer from
     - Founder/contact info.
     - Email-derived interaction summaries.
     - Source/provenance links.
-  - Agent must submit approval-required changes for:
+  - Agent is blocked (default-deny) from writing the following unless a human explicitly authorizes the tool/field in the runtime policy:
     - Investment amount.
     - Valuation.
     - Ownership.
@@ -249,13 +251,11 @@ A persistent AI agent — **Ritchie** — is a first-class backend consumer from
     - Investment recommendation.
     - Portfolio marks.
   - Every AI-created or AI-updated field stores confidence, source email/import/document, timestamp, and actor.
-  - Approval-required changes land in a pending-approvals queue and trigger an email notification to the current user who triggered the event before any write occurs.
-  - Approval-required proposal emails are sent immediately.
+  - Blocked tool calls are rejected before any write occurs, logged as `policy_blocked` in the agent event log, and surfaced in agent analytics so the team can see what Ritchie attempted and decide whether to authorize that tool/field.
 - All transactional notifications route through a single `NotificationService` abstraction. v1 delivers via SendGrid email only. Slack and any future channel are added by implementing a new channel adapter behind the same interface — no call-site changes required.
 - v1 notification channels: SendGrid email (primary). Slack adapter slot reserved.
 - In-app notification bell (frontend): planned but deferred to v2. The backend `notifications` table and delivery record will be designed from day one to support an unread-count and feed endpoint — the frontend bell is an additive UI layer that requires no schema migration when built.
-- All transactional email (approval proposals, task digests, task assignment notifications) is sent via SendGrid (free tier: 100 emails/day) using SMTP relay on port 587. The SendGrid API key is stored as an environment variable.
-- Approve/reject links in proposal emails are direct API endpoints with a signed JWT token scoped to that proposal: `GET /agent/proposals/{id}/approve?token=<signed_jwt>`. No frontend or login required to action a proposal in v1.
+- All transactional email (task digests, task assignment notifications) is sent via SendGrid (free tier: 100 emails/day) using SMTP relay on port 587. The SendGrid API key is stored as an environment variable.
 
 ## AI Agent Integration — Ritchie
 
@@ -265,19 +265,19 @@ This section defines the dev methodology for integrating Ritchie as a persistent
 
 Model every action Ritchie can take as a **typed tool definition** using the Anthropic tool-use API. Each tool has:
 - A JSON Schema for inputs and outputs.
-- A permission tier tag: `trusted` (auto-execute) or `approval_required` (queue for human review).
+- An authorization tag: `authorized` (auto-execute) or `blocked` (rejected until a human updates the policy setting).
 - An idempotency key field so retries never double-write.
-- A configurable permission policy so an admin can move fields, tools, or actions between `trusted` and `approval_required` later without rewriting the integration; policy changes take effect immediately.
+- A configurable runtime policy so fields, tools, or actions can be moved between `authorized` and `blocked` without rewriting the integration; policy changes take effect immediately and are audited.
 
 This forces a clean contract between the Claude layer and the backend service layer. The backend never evaluates free-form agent text — it only executes validated tool calls.
 
 ```
 Tools (examples):
-  update_company_description(company_id, description, source, confidence)  → trusted
-  update_deal_stage(deal_id, new_stage, rationale)                         → approval_required
-  create_interaction(company_id, summary, source_email_id, date)           → trusted
-  flag_stale_relationship(company_id, last_interaction_date, note)         → trusted
-  propose_investment_recommendation(deal_id, recommendation, rationale)    → approval_required
+  update_company_description(company_id, description, source, confidence)  → authorized
+  update_deal_stage(deal_id, new_stage, rationale)                         → blocked (default)
+  create_interaction(company_id, summary, source_email_id, date)           → authorized
+  flag_stale_relationship(company_id, last_interaction_date, note)         → authorized
+  record_investment_recommendation(deal_id, recommendation, rationale)     → blocked (default)
 ```
 
 ### 2. Event-Driven Triggers — Backend Pushes to Ritchie
@@ -321,15 +321,13 @@ Before any agent write lands in the canonical tables, the service layer **record
 
 The write is then executed and the log entry updated to `committed` or `failed`. This gives the team a complete, rollback-ready history of everything Ritchie has ever changed.
 
-### 6. Human-in-the-Loop Approval Queue for Sensitive Changes
+### 6. Binary Authorization Policy for Sensitive Changes
 
-Approval-required tool calls **never write to canonical tables**. Instead they:
-1. Insert a `pending_agent_proposal` record with full context (rationale, source, confidence, diff).
-2. Notify the current user who triggered the event by email with a one-click approve/reject link.
-3. On approval, the service layer executes the write with the original idempotency key and marks the proposal `approved`.
-4. On rejection, the proposal is marked `rejected` with optional reviewer note — fed back to Ritchie's context for learning.
-
-Proposals expire after 7 days if not actioned.
+There is no per-change approval queue, proposal record, or email approval link. Every tool/field is either `authorized` or `blocked` in a runtime policy stored in the database:
+1. Blocked tool calls are rejected at the policy gate before any service logic runs — they **never write to canonical tables**.
+2. Each rejection is logged as `policy_blocked` in the agent event log with full context (tool, payload hash, rationale, confidence).
+3. Blocked attempts are surfaced in agent analytics so the team can see what Ritchie tried and decide whether to authorize that tool/field.
+4. A human can flip a tool/field to `authorized` at runtime; the change is audited, takes effect immediately, and a retried call then executes with its original idempotency key.
 
 ### 7. Search — Keyword + Semantic
 
@@ -352,10 +350,9 @@ Both indexes are updated asynchronously by Celery workers and never block writes
 
 ### 8. Scoped API Key + Per-Endpoint Rate Limits
 
-Ritchie authenticates with a long-lived scoped API key tied to the `agent` role. Rate limits are enforced per tool type:
+Ritchie authenticates with a long-lived scoped API key tied to the `agent` role. Rate limits are enforced per tool type by a small Redis token-bucket implemented in `api/middleware.py` — Redis is already in the stack, so no external rate-limit library is needed:
 - Read endpoints: 120 req/min.
-- Trusted writes: 60 req/min.
-- Approval-required submissions: 10 req/min (these are high-value, low-frequency).
+- Authorized writes: 60 req/min.
 
 The key should be rotatable without a deploy. A dedicated admin-only panel is deferred.
 
@@ -373,8 +370,8 @@ Ritchie is additive. If the Claude API is unavailable, rate-limited, or returns 
 
 ### 11. Testing the Agent Integration
 
-- **Unit tests**: mock the Claude API client. Assert that tool calls are constructed with correct schemas, idempotency keys are stable, and approval-required tools never write directly.
-- **Integration tests**: run a sandboxed agent endpoint against a test database. Fire real events, assert audit log entries, assert pending proposals for sensitive changes.
+- **Unit tests**: mock the Claude API client. Assert that tool calls are constructed with correct schemas, idempotency keys are stable, and blocked tools never write.
+- **Integration tests**: run a sandboxed agent endpoint against a test database. Fire real events, assert audit log entries, assert blocked tool calls are rejected and logged as `policy_blocked`.
 - **Contract tests**: validate that every tool definition's JSON Schema matches the Pydantic model it maps to — run on every migration.
 - **Replay tests**: record real agent job payloads in CI fixtures. Replay them to assert deterministic outcomes without live Claude API calls.
 
@@ -390,7 +387,7 @@ Ritchie is additive. If the Claude API is unavailable, rate-limited, or returns 
 - `/tasks`: follow-ups, monitor reminders, diligence work, assignments, and completion.
 - `/imports/dealroom`: upload, preview, commit/run import, inspect errors.
 - `/email/gmail`: connect account, sync mailbox, inspect/list synced threads, link emails to records.
-- `/agent`: read context, submit trusted updates, submit proposed sensitive changes, retrieve pending proposals, approve/reject proposals.
+- `/agent`: read context, submit authorized updates, read and update the runtime authorization policy.
 - `/agent/context`: RAG context query endpoint — returns ranked relevant CRM records for a natural-language query.
 - `/agent/audit`: read-only audit log of all agent actions and proposals.
 - `/analytics`: pipeline, geography, source, sector, interaction, and portfolio dashboards.
@@ -419,10 +416,11 @@ Ritchie is additive. If the Claude API is unavailable, rate-limited, or returns 
 - Agent analytics:
   - Agent job success/failure rates.
   - Trusted write volume by tool and entity type.
-  - Pending proposal age and approval/rejection rates.
+  - Blocked attempt volume by tool and entity type.
   - Context query latency and token usage trends.
 
 ## Test Plan
+- Continuous integration: a GitHub Actions workflow (`.github/workflows/ci.yml`) runs ruff, mypy, backend tests with coverage, and frontend lint/typecheck/tests on every push and pull request.
 - Code coverage:
   - Track code coverage as part of the test workflow.
   - Backend Python coverage should use `coverage.py` through `pytest-cov`.
@@ -432,11 +430,11 @@ Ritchie is additive. If the Claude API is unavailable, rate-limited, or returns 
   - Auth roles and permission boundaries, including the `agent` role.
   - Dealroom CSV parsing, column mapping, preview, dedupe, non-overwrite rules, and commit behavior.
   - Manual CRM fields winning over imported data.
-  - AI trusted-field writes vs approval-required writes.
+  - AI authorized writes vs blocked writes (policy gate enforcement).
   - Gmail message normalization and record matching.
   - Portfolio metric calculations.
   - Agent tool schema construction and idempotency key stability.
-  - Approval-required tools never write directly to canonical tables.
+  - Blocked tools never write to canonical tables.
 - Integration tests:
   - Full Dealroom CSV upload, parse, dedupe, and commit flow.
   - Gmail sync-to-interaction flow.
@@ -445,7 +443,7 @@ Ritchie is additive. If the Claude API is unavailable, rate-limited, or returns 
   - Deal pipeline CRUD and analytics endpoints.
   - Alembic migration creation and rollback on a test database.
   - Agent event fanout: emit event → background job → tool execution → audit log entry.
-  - Approval-required proposal flow: agent submits → pending record created → email notification fired → approve → canonical write with original idempotency key.
+  - Authorization policy flow: blocked tool call rejected and logged → human authorizes the tool at runtime → retried call executes with the original idempotency key.
   - Agent context query endpoint returns ranked relevant records.
 - Acceptance scenarios:
   - Import a Dealroom CSV and view parsed, deduped company and founder records.
@@ -454,23 +452,26 @@ Ritchie is additive. If the Claude API is unavailable, rate-limited, or returns 
   - Confirm the AI cannot directly modify valuation, ownership, legal terms, investment recommendation, portfolio marks, or investment amount.
   - Query dashboard data for pipeline, sector focus, source breakdown, portfolio performance inputs, and founder geography.
   - Stale pipeline event triggers agent job; agent flags the deal; audit log records the action.
-  - Reject an agent proposal and confirm the rejection note is recorded in the audit log.
+  - Flip a blocked tool to authorized at runtime and confirm the change takes effect immediately, without restart, and is audited.
   - Rotate Ritchie's API key and confirm old key is immediately invalid.
+  - Restore the database from the latest nightly backup onto a clean Postgres container.
 
 ## Deployment
-- **v1 (proof of concept):** Everything runs locally on the personal Ubuntu 24.04 VM (4 GB RAM) via Docker Compose. All data stored locally — Postgres on VM disk, MinIO on VM disk. No external cloud services required. Accessed via SSH / local network.
+- **v1 (proof of concept):** Everything runs locally on the personal Ubuntu 24.04 VM (6 GB RAM) via Docker Compose. All data stored locally — Postgres on VM disk, MinIO on VM disk. No external cloud services required. Accessed via SSH / local network.
+- **Backups (required from day one):** a nightly `pg_dump` (cron or a lightweight compose service running `backend/scripts/backup_db.sh`) writes compressed dumps to a backups directory, retains the last 14 days, and copies each dump off the VM (free-tier object storage or a synced drive). The MinIO data directory is included in the same nightly copy. A restore from backup is tested once as a v1 acceptance step.
 - **v2:** Proper deployment procedures — domain, SSL, external object storage (Cloudflare R2), potential migration to RIT server or cloud host. All deferred.
 - **Deployment-agnostic design principles** (applied throughout so v2 migration requires only env var changes, not code rewrites):
   - All config via environment variables — no hardcoded hostnames, ports, credentials, or paths.
   - Backing services (Postgres, Redis, MinIO) referenced only by connection string env vars.
   - Stateless API containers — no local disk state, no in-process session storage.
   - Object storage via S3-compatible interface only — MinIO in v1, Cloudflare R2 (10 GB free, zero egress) or equivalent in v2, swapped with one env var change.
-- Memory budget on the VM (approximate): Postgres ~512 MB, FastAPI workers ~256 MB, Celery worker ~256 MB, Redis ~64 MB, MinIO ~256 MB — total ~1.4 GB, leaving ~2.6 GB headroom.
+- Memory budget on the VM (approximate): Postgres ~512 MB, FastAPI workers ~256 MB, Celery worker (including the sentence-transformers model) ~1 GB, Redis ~64 MB, MinIO ~256 MB — total ~2.1 GB, leaving roughly 4 GB headroom on the 6 GB VM.
 - Frontend: React + Vite, TypeScript, shadcn/ui component library (Tailwind CSS under the hood). Served as a static build by nginx. Nginx proxies `/api/*` to FastAPI and serves the frontend at root (`/`).
 - Frontend lives in `frontend/` at the repo root. It is built with `vite build` and the output (`dist/`) is served by nginx. The Docker Compose setup includes a `frontend` service for local dev (Vite dev server with HMR) and the nginx service handles production serving.
-- State management: React Query (TanStack Query) for server state — no Redux. Forms handled with React Hook Form + Zod for client-side validation mirroring API schemas.
+- State management: React Query (TanStack Query) for server state — no Redux. Forms handled with React Hook Form + Zod for client-side form validation only.
+- Frontend domain types are generated from the FastAPI OpenAPI spec via `openapi-typescript` from day one — an npm script regenerates them whenever the API changes. Hand-written TypeScript mirrors of Pydantic schemas are not maintained.
 - Authentication flow: frontend redirects to Google OAuth, receives JWT from the API on callback, stores it in `httpOnly` cookie (not localStorage).
-- Key v1 views: pipeline board (Kanban by deal status), company detail (logically organized company information + fillable active rubric + interaction history), contact detail, portfolio dashboard, task list, import/CSV management, Ritchie proposal review queue.
+- Key v1 views: pipeline board (Kanban by deal status), company detail (logically organized company information + fillable active rubric + interaction history), contact detail, portfolio dashboard, task list, import/CSV management, Ritchie activity view (agent audit log + authorization policy toggles).
 - Frontend company detail requirement: near the end of v1, when the frontend is being built, the company page should become the main workspace for reviewing a company. It should display company information in a logical layout and include an in-page screening rubric that users can fill out without leaving the company page.
 - Pipeline board default columns (in order): Outreach → Intro Meeting → Initial Review → Diligence → IC Review → Term Sheet → Closed/Invested. Passed deals appear in a separate swimlane below the main board.
 - Deal statuses are a configurable list stored in the database (not hardcoded enums), so new stages can be added and reordered later without a code change. In v1, no separate admin-only page access is required for this.
@@ -489,7 +490,6 @@ Ritchie is additive. If the Claude API is unavailable, rate-limited, or returns 
 - Ritchie (the AI agent) is a named, authenticated actor in the system from day one — not bolted on later.
 - All Claude API calls are async background jobs; no synchronous agent calls in the user-facing request path.
 - The RAG context layer (vector index) is required for cost-controlled, focused agent context — full-table context is not used.
-- Agent approval proposals expire after 7 days if not actioned.
 - The `agent` role API key should be rotatable without a deploy. A dedicated admin-only panel for this is deferred.
 - Production deployment uses Docker Compose on an RIT Linux server; nginx handles SSL termination and reverse proxying.
 
@@ -510,7 +510,7 @@ Solo AI-assisted build (3 hours/day) targeting June 30 operational date (20 days
 - Add `"crm"` entry to kernelbot `conf/mcp.json`. *(Can start earlier if kernelbot review happens in parallel.)*
 
 ### Phase 3 — Frontend (Days 18–20)
-- Days 18–19: Core views — pipeline board (Kanban), company detail (logical company profile + fillable rubric + interactions + documents), contact detail, task list, Ritchie proposal review queue.
+- Days 18–19: Core views — pipeline board (Kanban), company detail (logical company profile + fillable rubric + interactions + documents), contact detail, task list, Ritchie activity view (audit log + policy toggles).
 - Day 20: Auth flow (Google OAuth callback, httpOnly cookie), import/CSV management UI, portfolio dashboard, smoke test end-to-end on VM.
 
 ## Potential Future Features

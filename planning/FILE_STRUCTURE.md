@@ -1,10 +1,17 @@
 1829-Ventures/
 ├── .editorconfig                        # consistent formatting across all editors
 ├── .gitignore
+├── .github/
+│   └── workflows/
+│       └── ci.yml                       # ruff, mypy, pytest+coverage, frontend lint/tests on every push/PR
 ├── Makefile                             # dev, test, migrate, lint targets
 ├── README.md
-├── PLAN v1.md
-├── 1829 Ventures Screening Rubric.pdf
+├── planning/
+│   ├── PLAN_v1.md
+│   ├── FILE_STRUCTURE.md
+│   ├── APP_WORKFLOW_AND_FILES.md
+│   ├── MODEL_COMMS.md
+│   └── 1829 Ventures Screening Rubric.pdf
 ├── Dealroom Data (6.10.26).csv
 ├── .env.example
 ├── docker-compose.yml
@@ -22,7 +29,8 @@
 │   ├── scripts/
 │   │   ├── seed_funds.py                # creates Beta and Fund I records
 │   │   ├── promote_admin.py             # optional future role helper; no v1 admin/user page split
-│   │   └── rotate_agent_key.py          # rotates Ritchie's scoped API key
+│   │   ├── rotate_agent_key.py          # rotates Ritchie's scoped API key
+│   │   └── backup_db.sh                 # nightly pg_dump: compress, retain 14 days, copy off-VM
 │   ├── tests/
 │   │   ├── conftest.py                  # shared fixtures: db session, test client, auth headers
 │   │   ├── unit/
@@ -32,13 +40,13 @@
 │   │   │   ├── test_dealroom_csv.py
 │   │   │   ├── test_agent_tools.py
 │   │   │   ├── test_agent_contracts.py  # validates tool JSON Schemas match Pydantic models
-│   │   │   ├── test_approval_service.py
+│   │   │   ├── test_agent_policy.py     # binary authorized/blocked policy enforcement + runtime updates
 │   │   │   └── test_idempotency.py
 │   │   ├── integration/
 │   │   │   ├── conftest.py
 │   │   │   ├── test_dealroom_import.py
 │   │   │   ├── test_gmail_ingestion.py
-│   │   │   ├── test_agent_proposals.py
+│   │   │   ├── test_agent_policy_flow.py # blocked call rejected + logged → authorize at runtime → retried call writes
 │   │   │   ├── test_agent_replay.py     # replays recorded agent payloads without live Claude API
 │   │   │   └── test_analytics.py
 │   │   └── fixtures/                    # recorded agent job payloads for replay tests
@@ -49,7 +57,7 @@
 │       │
 │       ├── api/
 │       │   ├── __init__.py
-│       │   ├── middleware.py            # rate limiting by role + endpoint tier, request ID injection
+│       │   ├── middleware.py            # Redis token-bucket rate limiting by role + endpoint tier, request ID injection
 │       │   ├── router.py                # single include point for all sub-routers
 │       │   └── routes/
 │       │       ├── __init__.py
@@ -90,10 +98,10 @@
 │       │   ├── tag.py
 │       │   ├── import_batch.py          # job-level metadata: source, status, committed_at
 │       │   ├── import_row.py            # per-record: raw data, field provenance, row status (committed/skipped/conflict)
-│       │   ├── audit_log.py             # human edits
+│       │   ├── audit_log.py             # every create/update/archive: actor, timestamp, old/new values
 │       │   ├── ai_audit_log.py          # Ritchie writes — intentionally separate from human audit
-│       │   ├── agent_event_log.py
-│       │   ├── agent_proposal.py
+│       │   ├── agent_event_log.py       # includes policy_blocked rejections
+│       │   ├── agent_policy.py          # runtime authorization policy: tool/field, authorized|blocked, updated_by/at
 │       │   └── notification.py
 │       │
 │       ├── schemas/
@@ -114,7 +122,7 @@
 │       │   ├── document.py
 │       │   ├── import_batch.py
 │       │   ├── import_row.py            # preview row, conflict diff, commit/skip status
-│       │   ├── agent.py                 # tool definitions + proposal schemas
+│       │   ├── agent.py                 # tool definitions + authorization policy schemas
 │       │   └── analytics.py
 │       │
 │       ├── repositories/
@@ -145,8 +153,8 @@
 │       │   ├── document_service.py
 │       │   ├── dealroom_import_service.py
 │       │   ├── gmail_ingestion_service.py
-│       │   ├── agent_service.py         # trusted write routing, proposal creation
-│       │   ├── approval_service.py      # proposal lifecycle: create → notify → expire → approve/reject
+│       │   ├── agent_service.py         # authorized-write routing + policy gate enforcement
+│       │   ├── agent_policy_service.py  # runtime authorization policy reads/updates — audited, immediate effect
 │       │   ├── audit_service.py
 │       │   ├── notification_service.py  # NotificationService abstraction (channel-agnostic)
 │       │   ├── search_service.py        # keyword (tsvector + GIN) + semantic (pgvector HNSW)
@@ -155,9 +163,9 @@
 │       ├── agent/                       # CRM-side Ritchie integration surface (not Ritchie itself)
 │       │   ├── __init__.py
 │       │   ├── tools.py                 # typed tool definitions + permission tier tags
-│       │   ├── policy.py                # configurable trusted/approval_required policy; stricter admin-only editing is deferred
+│       │   ├── policy.py                # binary authorized/blocked runtime policy; stricter admin-only editing is deferred
 │       │   ├── context.py               # RAG context assembly: query → embed → top-K pgvector neighbors
-│       │   └── mcp_server.py            # SSE MCP endpoint (/mcp/sse) — must use SSE transport to match kernelbot conf/mcp.json
+│       │   └── mcp_server.py            # Streamable HTTP MCP endpoint (/mcp) — SSE is deprecated; kernelbot conf/mcp.json configured to match
 │       │
 │       ├── workers/
 │       │   ├── __init__.py
@@ -184,7 +192,7 @@
 │       └── core/
 │           ├── __init__.py
 │           ├── config.py                # env-var settings via pydantic BaseSettings
-│           ├── database.py              # SQLAlchemy engine, session factory, get_session
+│           ├── database.py              # dual engines: async (asyncpg) for API, sync (psycopg2) for Celery + Alembic
 │           ├── dependencies.py          # FastAPI Depends() providers
 │           ├── security.py              # JWT signing/verification, API key hashing
 │           ├── permissions.py           # role constants, future permission matrix
@@ -224,7 +232,7 @@
 │       │   ├── importsApi.ts
 │       │   └── analyticsApi.ts
 │       ├── types/
-│       │   ├── index.ts                 # re-exports all domain types — eventually generated from OpenAPI schema
+│       │   ├── index.ts                 # re-exports domain types — generated from OpenAPI via openapi-typescript from day one
 │       │   ├── common.ts                # PaginatedResponse<T>, ApiError, SortOrder, etc.
 │       │   ├── company.ts
 │       │   ├── person.ts
@@ -244,7 +252,7 @@
 │       │   └── useAgent.ts
 │       ├── lib/
 │       │   ├── utils.ts                 # cn(), date formatting, currency formatting
-│       │   ├── validators.ts            # Zod schemas that mirror backend Pydantic schemas
+│       │   ├── validators.ts            # Zod schemas for client-side form validation only (types come from OpenAPI codegen)
 │       │   └── constants.ts             # sector labels, status display strings, UI-facing copy
 │       ├── components/
 │       │   ├── ui/                      # shadcn/ui primitives (Button, Card, Dialog, Badge, etc.)
@@ -267,9 +275,9 @@
 │       │   │   ├── TaskCard.tsx
 │       │   │   ├── TaskForm.tsx
 │       │   │   └── index.ts
-│       │   └── proposals/
-│       │       ├── ProposalCard.tsx
-│       │       ├── ProposalQueue.tsx
+│       │   └── agent/
+│       │       ├── AgentAuditLog.tsx    # Ritchie activity feed: authorized writes + blocked attempts
+│       │       ├── PolicyPanel.tsx      # authorized/blocked toggles per Ritchie tool/field
 │       │       └── index.ts
 │       └── pages/
 │           ├── PipelineBoard.tsx
@@ -285,5 +293,7 @@
 │
 └── docker/
     ├── postgres/
-    ├── redis/
+    │   └── init.sql                     # CREATE EXTENSION postgis, vector — runs on first start, before first migration
+    ├── redis/                           # local config, if needed
     └── minio/
+        └── init.sh                      # creates default buckets on first startup

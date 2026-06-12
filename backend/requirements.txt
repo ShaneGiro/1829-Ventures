@@ -9,7 +9,7 @@
 #
 # PyTorch is required by sentence-transformers (embedding model). Without the
 # cpu-only flag pip will pull the CUDA build (~2 GB), which is unnecessary on
-# the dev VM and will exhaust the 4 GB RAM budget.
+# the dev VM (no GPU).
 # ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -36,7 +36,7 @@ redis>=5.2.0                     # Celery broker + result backend
 
 
 # ─── Authentication ───────────────────────────────────────────────────────────
-python-jose[cryptography]>=3.3.0 # JWT signing and verification
+pyjwt[crypto]>=2.10.0            # JWT signing and verification (actively maintained; replaces python-jose)
 authlib>=1.3.2                   # Google OAuth 2.0 client
 httpx>=0.28.0                    # async HTTP client (OAuth flow + test client)
 
@@ -55,7 +55,7 @@ sentence-transformers>=3.3.0     # all-MiniLM-L6-v2 (80 MB) for pgvector embeddi
 
 
 # ─── MCP Server ───────────────────────────────────────────────────────────────
-mcp>=1.2.0                       # Anthropic MCP SDK — SSE server transport for kernelbot
+mcp>=1.2.0                       # Anthropic MCP SDK — Streamable HTTP server transport for kernelbot
 
 
 # ─── Utilities ────────────────────────────────────────────────────────────────
