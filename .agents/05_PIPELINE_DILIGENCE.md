@@ -9,7 +9,7 @@ Implement relationship/investment status workflows, review-needed triage, config
 - `planning/PLAN_v1.md`
 - `planning/FILE_STRUCTURE.md`
 - `planning/APP_WORKFLOW_AND_FILES.md`
-- `1829 Ventures Screening Rubric.pdf`
+- `planning/1829 Ventures Screening Rubric.pdf`
 - `.agents/README.md`
 
 ## Depends On

@@ -27,6 +27,8 @@ Implement core CRUD and service behavior for companies, people, contacts, affili
 - `backend/app/api/routes/documents.py`
 - `backend/app/services/company_service.py`
 - `backend/app/services/document_service.py`
+- `backend/app/services/audit_service.py` (human/system audit paths; AI audit paths belong to Agent 10)
+- `backend/app/core/audit.py`
 - Related repositories and schemas.
 - Related tests.
 
@@ -48,6 +50,8 @@ Implement core CRUD and service behavior for companies, people, contacts, affili
 - Portfolio metric inputs.
 - Document metadata and presigned-upload service boundary.
 - Manual-field source-of-truth behavior represented in services where applicable.
+- Audit logging wired into every create/update/archive path: actor, timestamp, old value, new value.
+- Deletion is soft-delete (`archived_at`) on all core entities; no hard-delete endpoints.
 
 ## Tests To Add Or Run
 

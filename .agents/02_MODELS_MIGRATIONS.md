@@ -57,8 +57,14 @@ Models and schemas for:
 - Human audit log
 - AI audit log
 - Agent event log
-- Agent proposals
+- Agent policy (runtime authorization: tool/field, authorized or blocked, updated_by/at)
 - Notifications
+
+Cross-cutting model requirements:
+
+- Soft delete: core entities carry `archived_at` on the shared base — no hard deletes.
+- Every create/update/archive must be auditable with actor, timestamp, and old/new values; the audit log models must support this for all actor types (human, import, system, Ritchie).
+- There is no agent proposal model — Ritchie governance is the binary `agent_policy` table.
 
 ## Tests To Add Or Run
 

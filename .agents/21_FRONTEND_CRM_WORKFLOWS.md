@@ -27,12 +27,12 @@ Implement the core CRM frontend workflows: pipeline board, company detail, conta
 - `frontend/src/components/tasks/`
 - `frontend/src/api/`
 - `frontend/src/hooks/`
-- `frontend/src/types/`
+- `frontend/src/types/` (regenerate from OpenAPI only — do not hand-edit)
 
 ## Avoid
 
 - Import manager.
-- Ritchie proposal queue.
+- Ritchie activity/policy view (Agent 22).
 - Portfolio dashboard.
 - Backend code.
 

@@ -2,7 +2,7 @@
 
 ## Goal
 
-Implement Dealroom import UI, Ritchie proposal review queue, and portfolio dashboard.
+Implement the Dealroom import UI, the Ritchie activity view (agent audit log + authorization policy toggles), and the portfolio dashboard.
 
 ## Read First
 
@@ -14,23 +14,24 @@ Implement Dealroom import UI, Ritchie proposal review queue, and portfolio dashb
 ## Depends On
 
 - `20_FRONTEND_FOUNDATION.md`
-- Backend endpoints for imports, agent proposals/audit/context, investments, portfolio metrics, and analytics.
+- Backend endpoints for imports, agent policy/audit/context, investments, portfolio metrics, and analytics.
 
 ## May Edit
 
 - `frontend/src/pages/ImportManager.tsx`
 - `frontend/src/pages/PortfolioDashboard.tsx`
-- Proposal queue page/component if added.
-- `frontend/src/components/proposals/`
+- Ritchie activity page/component if added.
+- `frontend/src/components/agent/` (`AgentAuditLog.tsx`, `PolicyPanel.tsx`)
 - `frontend/src/api/importsApi.ts`
 - `frontend/src/api/agentApi.ts`
 - `frontend/src/api/investmentsApi.ts`
 - `frontend/src/api/portfolioMetricsApi.ts`
 - `frontend/src/api/analyticsApi.ts`
-- Related hooks/types/components.
+- Related hooks and components. Regenerate `frontend/src/types/` from OpenAPI — do not hand-edit.
 
 ## Avoid
 
+- Building any proposal review queue or approve/reject UI — the per-change approval workflow was removed from the plan. Ritchie governance is a binary authorized/blocked policy.
 - Backend code.
 - Core pipeline/company UI unless needed for navigation.
 
@@ -39,17 +40,17 @@ Implement Dealroom import UI, Ritchie proposal review queue, and portfolio dashb
 - CSV upload and preview screen.
 - Conflict/skipped row review.
 - Commit action and import batch detail.
-- Ritchie proposal queue with approve/reject actions.
-- Agent audit/proposal status surfaces.
+- Ritchie activity view: `AgentAuditLog.tsx` feed showing authorized writes and `policy_blocked` attempts, with source/confidence detail.
+- `PolicyPanel.tsx`: authorized/blocked toggles per Ritchie tool/field, grouped by tool/action; changes apply immediately via the policy endpoints.
 - Portfolio dashboard with fund and portfolio metrics.
 
 ## Tests To Add Or Run
 
 - Frontend typecheck.
-- Component tests for import/proposal states if available.
+- Component tests for import states and the policy toggle flow if available.
 
 ## Definition Of Done
 
 - Users can review Dealroom imports before commit.
-- Users can review Ritchie proposals safely.
+- Users can see what Ritchie did and attempted, and flip tool/field authorization from the UI.
 - Portfolio metrics are visible in a dashboard.

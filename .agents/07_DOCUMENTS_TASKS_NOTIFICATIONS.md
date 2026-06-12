@@ -31,7 +31,8 @@ Implement S3-compatible document storage flow, tasks, task reminders, notificati
 
 ## Avoid
 
-- Ritchie proposal approval email internals unless coordinating with Agent 09.
+- Ritchie agent behavior (Agent 10). There is no proposal/approval email workflow in the plan — do not build one.
+- Gmail ingestion (Agent 09).
 - Frontend UI.
 
 ## Expected Output
