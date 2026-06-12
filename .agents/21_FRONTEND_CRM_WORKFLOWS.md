@@ -2,7 +2,7 @@
 
 ## Goal
 
-Implement the core CRM frontend workflows: pipeline board, company detail, contacts, interactions, tasks, and documents.
+Implement the core CRM frontend workflows: pipeline board, company detail, contacts, interactions, tasks, and documents. The company detail page should be the main company workspace and include logically organized company information plus an in-page, fillable screening rubric.
 
 ## Read First
 
@@ -39,7 +39,8 @@ Implement the core CRM frontend workflows: pipeline board, company detail, conta
 ## Expected Output
 
 - Pipeline board with configurable status columns.
-- Company detail page with profile, completeness, active rubric surface, interactions, tasks, and documents.
+- Company detail page with logically organized company profile information, completeness, contacts, status, tags, Dealroom/source provenance where available, interactions, tasks, documents, and an in-page fillable active rubric.
+- Rubric editing should happen on the company page without forcing the user to navigate to a separate rubric page.
 - Contact detail page.
 - Task list and task form.
 - API hooks for core CRM entities.
@@ -52,5 +53,6 @@ Implement the core CRM frontend workflows: pipeline board, company detail, conta
 ## Definition Of Done
 
 - Internal users can navigate core CRM workflows.
+- Users can review company information and fill out the active screening rubric on the company detail page.
 - UI uses backend server state through TanStack Query.
 - Text and controls fit responsive layouts.

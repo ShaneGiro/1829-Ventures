@@ -23,11 +23,13 @@ React frontend -> nginx -> FastAPI API -> service layer -> repositories -> Postg
 
 ### Authentication
 
-Users log in through Google OAuth. The backend accepts only configured RIT Google domains, creates accounts on first login, and issues a session/JWT through an HTTP-only cookie. The first valid login can become the initial admin. Ritchie does not use Google OAuth; it uses a scoped API key and is restricted to `/agent/*` and MCP-facing functionality.
+Users log in through Google OAuth. In v1, the backend accepts eligible RIT Google accounts, especially emails ending in `@g.rit.edu`, creates accounts on first eligible login, and issues a session/JWT through an HTTP-only cookie. This means anyone with an approved RIT Google email domain can log in during v1. All authenticated human users have the same page access in v1; there is no separate admin page experience. A future version will add invitation gating so a user must have both an eligible RIT Google email and a pre-existing invitation or approved account record. Ritchie does not use Google OAuth; it uses a scoped API key and is restricted to `/agent/*` and MCP-facing functionality.
 
 ### Company-Centered CRM
 
 The primary workspace is the company record. A company can be created with only a name. Missing information is tracked through completeness fields instead of blocking creation. The company record connects to people, contacts, affiliations, interactions, deals, documents, tags, tasks, import provenance, and agent activity.
+
+During the frontend phase near the end of v1, the company detail page should become the main company workspace. It should display all important company information in a logical layout and include an in-page, fillable screening rubric tied to the active investment opportunity, so users can evaluate the company without leaving the page.
 
 ### People And Contacts
 
@@ -108,10 +110,12 @@ Ritchie is treated as a first-class actor. The backend exposes typed tools, an a
 | Path | Purpose |
 | --- | --- |
 | `backend/scripts/seed_funds.py` | Creates initial fund records for Beta and Fund I. |
-| `backend/scripts/promote_admin.py` | Promotes a user to admin before the admin UI exists. |
+| `backend/scripts/promote_admin.py` | Optional future helper for role testing; v1 does not distinguish admin and normal user page access. |
 | `backend/scripts/rotate_agent_key.py` | Rotates Ritchie's scoped API key. |
 
 ### `backend/tests/`
+
+Coverage note: code coverage should be tracked as part of the test workflow. Backend Python coverage should use `coverage.py` through `pytest-cov`. Frontend TypeScript coverage should use Vitest coverage with the V8/Istanbul provider. JaCoCo is not planned unless a Java/JVM component is added later.
 
 | Path | Purpose |
 | --- | --- |
@@ -149,7 +153,7 @@ Ritchie is treated as a first-class actor. The backend exposes typed tools, an a
 | `backend/app/api/router.py` | Single include point for all API route modules. |
 | `backend/app/api/routes/__init__.py` | Marks the routes package. |
 | `backend/app/api/routes/auth.py` | Google OAuth login, callback, session refresh, logout, and current user endpoints. |
-| `backend/app/api/routes/users.py` | Internal user management and role/admin controls. |
+| `backend/app/api/routes/users.py` | Internal user records and role metadata for future permissions; v1 human users have the same page access. |
 | `backend/app/api/routes/companies.py` | Company CRUD, completeness, source provenance, tags, and profile fields. |
 | `backend/app/api/routes/people.py` | People CRUD and RIT affiliation-related endpoints. |
 | `backend/app/api/routes/deals.py` | Deal/opportunity CRUD, diligence, pipeline movements, and decisions. |
@@ -161,7 +165,7 @@ Ritchie is treated as a first-class actor. The backend exposes typed tools, an a
 | `backend/app/api/routes/email.py` | Gmail-related email ingestion and review endpoints. |
 | `backend/app/api/routes/imports.py` | Dealroom upload, preview, conflict review, commit, and skipped-row inspection. |
 | `backend/app/api/routes/agent.py` | Ritchie `/agent`, `/agent/context`, and `/agent/audit` endpoints. |
-| `backend/app/api/routes/deal_statuses.py` | Admin CRUD for configurable pipeline stages. |
+| `backend/app/api/routes/deal_statuses.py` | CRUD for configurable pipeline stages; no v1 admin-only page distinction. |
 | `backend/app/api/routes/analytics.py` | Pipeline, portfolio, source, sector, interaction, thesis, and agent analytics endpoints. |
 
 ### `backend/app/models/`
@@ -243,7 +247,7 @@ Ritchie is treated as a first-class actor. The backend exposes typed tools, an a
 | --- | --- |
 | `backend/app/services/__init__.py` | Marks the service package. |
 | `backend/app/services/auth_service.py` | OAuth callback handling, account creation, session/JWT behavior, and agent key auth. |
-| `backend/app/services/permission_service.py` | Central `require_permission` guard, always permissive in v1 except protected surfaces. |
+| `backend/app/services/permission_service.py` | Central `require_permission` guard, permissive for authenticated human users in v1; Ritchie's agent API remains scoped separately. |
 | `backend/app/services/company_service.py` | Company business rules, completeness, non-overwrite rules, tags, and provenance. |
 | `backend/app/services/deal_service.py` | Deal CRUD, opportunity creation, and deal-level business rules. |
 | `backend/app/services/pipeline_service.py` | Relationship/investment status transitions, review-needed triage, monitor, pass, and start-review workflows. |
@@ -417,7 +421,7 @@ Ritchie is treated as a first-class actor. The backend exposes typed tools, an a
 | Path | Purpose |
 | --- | --- |
 | `frontend/src/pages/PipelineBoard.tsx` | Main deal pipeline board page. |
-| `frontend/src/pages/CompanyDetail.tsx` | Company profile, active rubric, interactions, tasks, and documents. |
+| `frontend/src/pages/CompanyDetail.tsx` | Main company workspace with logically organized company profile information, fillable active rubric, interactions, tasks, and documents. |
 | `frontend/src/pages/ContactDetail.tsx` | Person/contact detail page. |
 | `frontend/src/pages/PortfolioDashboard.tsx` | Fund and portfolio metrics dashboard. |
 | `frontend/src/pages/TaskList.tsx` | User and shared task queues. |

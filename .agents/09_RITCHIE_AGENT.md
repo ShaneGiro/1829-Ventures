@@ -42,7 +42,7 @@ Implement the CRM-side Ritchie integration: typed tools, policy, context, `/agen
 
 - Typed tool definitions with JSON Schema.
 - Permission tier policy: trusted vs approval-required.
-- Policy can be changed at runtime by admin-controlled behavior.
+- Policy can be changed at runtime if exposed in v1. Do not create a separate admin-only page-access model for v1; all authenticated human users have the same page access.
 - Trusted writes are audited before commit.
 - Approval-required calls create proposals and never write directly.
 - Proposal approve/reject flow uses original idempotency key.

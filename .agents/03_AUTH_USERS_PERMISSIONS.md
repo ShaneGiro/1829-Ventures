@@ -2,7 +2,7 @@
 
 ## Goal
 
-Implement Google OAuth session flow, user creation, role fields, first-admin behavior, scoped Ritchie API key authentication, and centralized permission checks.
+Implement Google OAuth session flow, user creation, role fields for future use, scoped Ritchie API key authentication, and centralized permission checks. In v1, all authenticated human users have the same page access.
 
 ## Read First
 
@@ -27,7 +27,7 @@ Implement Google OAuth session flow, user creation, role fields, first-admin beh
 - `backend/app/services/permission_service.py`
 - `backend/app/repositories/users.py`
 - `backend/app/integrations/google_oauth.py`
-- `backend/scripts/promote_admin.py`
+- `backend/scripts/promote_admin.py` only if a future role helper is still useful.
 - `backend/scripts/rotate_agent_key.py`
 - `.env.example`
 - Auth/user tests.
@@ -41,21 +41,24 @@ Implement Google OAuth session flow, user creation, role fields, first-admin beh
 ## Expected Output
 
 - Google OAuth login path and callback service logic.
-- Domain allowlist for `@rit.edu` and `@g.rit.edu`.
+- Domain allowlist for eligible RIT Google accounts, especially emails ending in `@g.rit.edu`.
+- V1 allows anyone with an eligible RIT Google account to log in.
+- Future-ready structure for invite-gated login, where a user must have both an eligible RIT Google email and a pre-existing invitation or approved account record.
 - User record creation on first successful login.
-- First valid login becomes admin or equivalent seed/admin bootstrap path exists.
+- Role field exists for future use, but v1 does not need first-admin behavior or separate admin page access.
 - Ritchie scoped API key works only for agent surfaces.
-- Central `require_permission(user, action, resource)` exists and is permissive in v1 except restricted admin/agent boundaries.
+- Central `require_permission(user, action, resource)` exists and is permissive for authenticated human users in v1.
+- Ritchie remains scoped separately from human users and can only access agent surfaces.
 
 ## Tests To Add Or Run
 
-- Auth domain allowlist tests.
-- First-admin behavior test.
-- Permission guard tests.
+- Auth domain allowlist tests, including `@g.rit.edu`.
+- Future invite-gating tests can be skipped or marked pending until that feature is implemented.
+- Permission guard tests showing authenticated human users have equal v1 access.
 - Agent key accept/reject tests.
 
 ## Definition Of Done
 
 - Human users and Ritchie have distinct authentication paths.
 - Ritchie's key cannot access ordinary user routes.
-- Role fields exist from day one even if most v1 permission checks are permissive.
+- Role fields exist from day one for future use, but v1 human page access is the same for everyone.

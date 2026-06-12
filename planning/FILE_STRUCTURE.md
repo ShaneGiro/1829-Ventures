@@ -21,7 +21,7 @@
 │   │   └── versions/
 │   ├── scripts/
 │   │   ├── seed_funds.py                # creates Beta and Fund I records
-│   │   ├── promote_admin.py             # promotes a user to admin before admin UI exists
+│   │   ├── promote_admin.py             # optional future role helper; no v1 admin/user page split
 │   │   └── rotate_agent_key.py          # rotates Ritchie's scoped API key
 │   ├── tests/
 │   │   ├── conftest.py                  # shared fixtures: db session, test client, auth headers
@@ -66,7 +66,7 @@
 │       │       ├── email.py             # /email/gmail
 │       │       ├── imports.py           # /imports/dealroom
 │       │       ├── agent.py             # /agent + /agent/context + /agent/audit
-│       │       ├── deal_statuses.py     # admin CRUD for configurable pipeline stages
+│       │       ├── deal_statuses.py     # CRUD for configurable pipeline stages; no v1 admin-only page split
 │       │       └── analytics.py
 │       │
 │       ├── models/
@@ -155,7 +155,7 @@
 │       ├── agent/                       # CRM-side Ritchie integration surface (not Ritchie itself)
 │       │   ├── __init__.py
 │       │   ├── tools.py                 # typed tool definitions + permission tier tags
-│       │   ├── policy.py                # configurable trusted/approval_required policy (admin-editable at runtime)
+│       │   ├── policy.py                # configurable trusted/approval_required policy; stricter admin-only editing is deferred
 │       │   ├── context.py               # RAG context assembly: query → embed → top-K pgvector neighbors
 │       │   └── mcp_server.py            # SSE MCP endpoint (/mcp/sse) — must use SSE transport to match kernelbot conf/mcp.json
 │       │

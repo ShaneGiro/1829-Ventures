@@ -26,6 +26,7 @@ Before editing files, each agent should read:
 - Do not rewrite planning docs unless the task explicitly says to.
 - Prefer small, testable vertical slices.
 - Add or update tests for the behavior being implemented.
+- Track code coverage for implemented areas. Use `coverage.py` through `pytest-cov` for backend Python coverage, and Vitest coverage with V8/Istanbul for frontend TypeScript coverage.
 - Preserve the route -> service -> repository -> model boundary.
 - Keep slow work in workers, not request handlers.
 - Keep Ritchie writes typed, audited, idempotent, and approval-gated where required.

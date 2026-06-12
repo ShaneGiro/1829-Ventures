@@ -12,12 +12,12 @@ A persistent AI agent — **Ritchie** — is a first-class backend consumer from
 ## Key Product Decisions
 - Primary workspace: company records.
 - Users: internal 1829 team only for v1.
-- Access model: mostly open internally, with sensitive/admin actions restricted by role.
+- Access model: all authenticated human users have the same page access in v1. No admin-only page experience is planned for v1.
 - Diligence checklist completion is open to any internal user in v1 because the team is currently small; the model should preserve actor/timestamp history so stricter permissions can be added later.
 - Source of truth: manually curated 1829 CRM fields win over imported or AI-derived fields.
 - Ritchie cannot overwrite a human-curated field without approval or explicit permission.
 - Ritchie's approval-required vs trusted-write policy must be configurable so fields/actions can move between tiers without code rewrites.
-- Only admins can change Ritchie's approval policy, and those policy changes are audited.
+- Ritchie's approval policy should be configurable and audited. In v1, if policy editing is exposed at all, all authenticated human users have the same access model; stricter admin-only control is deferred.
 - Ritchie approval policy changes take effect immediately without restart or redeploy.
 - Ritchie approval policy is field-level for record writes, with fields grouped by tool/action so admins can configure an entire tool/action at once when needed.
 - Auditability is a core product requirement: every material manual, import, and AI change should be easy to inspect.
@@ -63,7 +63,7 @@ A persistent AI agent — **Ritchie** — is a first-class backend consumer from
   - Google OAuth login.
   - JWT/session handling after OAuth authentication.
   - Role model: `admin`, `managing_director`, `principal`, `analyst`, `agent` (scoped API key for Ritchie).
-  - Admin-only user and integration settings.
+  - Role field exists for future use, but v1 does not have separate admin-only pages or human page-access restrictions.
 - Documents:
   - Store metadata in Postgres.
   - Design for S3-compatible object storage.
@@ -144,7 +144,7 @@ A persistent AI agent — **Ritchie** — is a first-class backend consumer from
   - Import batches, raw source rows, field-level source metadata, confidence, actor, timestamp.
 - System audit log:
   - Material manual changes to companies, contacts, deals, diligence, investments, rubric scores, statuses, tags, and portfolio metrics store actor, timestamp, old value, new value, and reason/context when available.
-  - Audit history is exposed both locally on company/deal pages and globally through an admin/audit view.
+  - Audit history is exposed both locally on company/deal pages and globally through an audit view. In v1, any authenticated human user can access the same pages.
 - AI audit:
   - Agent actions, trusted writes, proposed sensitive changes, source emails/documents/imports, rollback metadata.
 - Agent event log:
@@ -153,10 +153,14 @@ A persistent AI agent — **Ritchie** — is a first-class backend consumer from
 ## Roles and Permissions
 - v1: all authenticated users have full access. No permission gates are enforced.
 - Users have a `role` field (default: `member`) on the user record from day one — the column exists even though it isn't checked yet.
-- Permission checks are centralized in a single `require_permission(user, action, resource)` guard in the API layer. In v1 this always returns `True`; adding a new role means implementing the logic in one place, not hunting call sites.
+- All authenticated human users see the same pages in v1. There is no difference between an admin page and a normal user page for v1.
+- Permission checks are centralized in a single `require_permission(user, action, resource)` guard in the API layer. In v1 this returns `True` for authenticated human users; adding a new role later means implementing the logic in one place, not hunting call sites.
 - Planned future roles (not enforced in v1): `admin` (user management, fund settings), `analyst` (full pipeline CRUD, read-only on fund financials), `observer` (read-only).
-- Google OAuth (`@rit.edu` and `@g.rit.edu` domains enforced at login) is the only login method. No username/password, no self-registration. Accounts are created automatically on first successful Google login.
-- First person to log in via Google OAuth becomes admin. Additional admins can be promoted via seed script or direct DB update in v1.
+- Google OAuth is the only login method. No username/password.
+- V1 login eligibility is based on RIT Google accounts: a user must authenticate with a Google account whose email ends in an approved RIT domain, especially `@g.rit.edu`. This allows anyone with an RIT Google account to log in during v1.
+- Future login eligibility will become invite-gated: a valid RIT Google email will still be required, but the user must also have a pre-existing invitation or approved account record before they can access the CRM.
+- Accounts are created automatically on first successful eligible Google login in v1.
+- The first-login/admin bootstrap flow is deferred unless needed for future role testing, because v1 does not distinguish admin and normal user page access.
 - Ritchie authenticates to the CRM via a dedicated long-lived API key (not a Google OAuth session). Ritchie is only permitted to call `/agent/*` endpoints. All other routes reject Ritchie's key with 403. This is enforced at the API layer, not by network rules alone, so it holds regardless of deployment topology. Ritchie has no access to the codebase, database, or file system of the CRM host — it communicates exclusively through the defined API surface.
 
 ## 1829-Specific Fields
@@ -353,7 +357,7 @@ Ritchie authenticates with a long-lived scoped API key tied to the `agent` role.
 - Trusted writes: 60 req/min.
 - Approval-required submissions: 10 req/min (these are high-value, low-frequency).
 
-The key can be rotated from the admin panel without a deploy.
+The key should be rotatable without a deploy. A dedicated admin-only panel is deferred.
 
 ### 9. Structured Outputs + Schema Validation
 
@@ -365,7 +369,7 @@ Ritchie is additive. If the Claude API is unavailable, rate-limited, or returns 
 - Background jobs fail gracefully and are retried with exponential backoff.
 - The event is logged as `agent_unavailable` — not silently dropped.
 - No user-facing functionality is blocked.
-- A daily health check reports agent job success/failure rates to the admin panel.
+- A daily health check reports agent job success/failure rates to the app/API. A dedicated admin-only panel is deferred.
 
 ### 11. Testing the Agent Integration
 
@@ -376,7 +380,7 @@ Ritchie is additive. If the Claude API is unavailable, rate-limited, or returns 
 
 ## API Surface
 - `/auth`: Google login, refresh/session, current user.
-- `/users`: internal users, roles, admin controls.
+- `/users`: internal users and role metadata for future permissions; no v1 page-access differences for human users.
 - `/companies`: company CRUD, map fields, thesis fields.
 - `/people`: people CRUD and RIT affiliations.
 - `/interactions`: notes, meetings, emails, intros.
@@ -419,6 +423,11 @@ Ritchie is additive. If the Claude API is unavailable, rate-limited, or returns 
   - Context query latency and token usage trends.
 
 ## Test Plan
+- Code coverage:
+  - Track code coverage as part of the test workflow.
+  - Backend Python coverage should use `coverage.py` through `pytest-cov`.
+  - Frontend TypeScript coverage should use Vitest coverage with the V8/Istanbul provider.
+  - JaCoCo is not planned unless a Java/JVM component is added later.
 - Unit tests:
   - Auth roles and permission boundaries, including the `agent` role.
   - Dealroom CSV parsing, column mapping, preview, dedupe, non-overwrite rules, and commit behavior.
@@ -461,14 +470,15 @@ Ritchie is additive. If the Claude API is unavailable, rate-limited, or returns 
 - Frontend lives in `frontend/` at the repo root. It is built with `vite build` and the output (`dist/`) is served by nginx. The Docker Compose setup includes a `frontend` service for local dev (Vite dev server with HMR) and the nginx service handles production serving.
 - State management: React Query (TanStack Query) for server state — no Redux. Forms handled with React Hook Form + Zod for client-side validation mirroring API schemas.
 - Authentication flow: frontend redirects to Google OAuth, receives JWT from the API on callback, stores it in `httpOnly` cookie (not localStorage).
-- Key v1 views: pipeline board (Kanban by deal status), company detail (profile + active rubric + interaction history), contact detail, portfolio dashboard, task list, import/CSV management, Ritchie proposal review queue.
+- Key v1 views: pipeline board (Kanban by deal status), company detail (logically organized company information + fillable active rubric + interaction history), contact detail, portfolio dashboard, task list, import/CSV management, Ritchie proposal review queue.
+- Frontend company detail requirement: near the end of v1, when the frontend is being built, the company page should become the main workspace for reviewing a company. It should display company information in a logical layout and include an in-page screening rubric that users can fill out without leaving the company page.
 - Pipeline board default columns (in order): Outreach → Intro Meeting → Initial Review → Diligence → IC Review → Term Sheet → Closed/Invested. Passed deals appear in a separate swimlane below the main board.
-- Deal statuses are a configurable list stored in the database (not hardcoded enums), so new stages can be added and reordered by an admin without a code change.
+- Deal statuses are a configurable list stored in the database (not hardcoded enums), so new stages can be added and reordered later without a code change. In v1, no separate admin-only page access is required for this.
 
 ## Assumptions
 - LP portal, founder portal, and full fund accounting are deferred.
 - Carta is a benchmark for fund CRM and portfolio workflows, not a v1 integration.
-- Google OAuth is used for login. A new Google Cloud project must be created specifically for the 1829 Ventures CRM (separate from kernelbot's Google credentials). Required setup: OAuth 2.0 client ID, authorized redirect URIs, app in testing mode with team members added as test users for v1. The Google People API must be enabled for profile info on login.
+- Google OAuth is used for login. A new Google Cloud project must be created specifically for the 1829 Ventures CRM (separate from kernelbot's Google credentials). Required setup: OAuth 2.0 client ID, authorized redirect URIs, app in testing mode with team members added as test users for v1. The Google People API must be enabled for profile info on login. V1 accepts eligible RIT Google accounts, especially emails ending in `@g.rit.edu`; future versions will require both an eligible RIT Google email and an invitation/approved account record.
 - Dealroom integration is CSV-based, not API-based.
 - Postgres/PostGIS is required because geography and map analytics are core product features.
 - Object storage: MinIO (self-hosted, S3-compatible) for v1 — runs as a Docker Compose container, stores files on VM disk. Cloudflare R2 targeted for v2 (10 GB free forever, zero egress fees). Interface is identical — swap is one env var change.
@@ -480,7 +490,7 @@ Ritchie is additive. If the Claude API is unavailable, rate-limited, or returns 
 - All Claude API calls are async background jobs; no synchronous agent calls in the user-facing request path.
 - The RAG context layer (vector index) is required for cost-controlled, focused agent context — full-table context is not used.
 - Agent approval proposals expire after 7 days if not actioned.
-- The `agent` role API key is rotatable from the admin panel without a deploy.
+- The `agent` role API key should be rotatable without a deploy. A dedicated admin-only panel for this is deferred.
 - Production deployment uses Docker Compose on an RIT Linux server; nginx handles SSL termination and reverse proxying.
 
 ## Build Sequence
@@ -500,7 +510,7 @@ Solo AI-assisted build (3 hours/day) targeting June 30 operational date (20 days
 - Add `"crm"` entry to kernelbot `conf/mcp.json`. *(Can start earlier if kernelbot review happens in parallel.)*
 
 ### Phase 3 — Frontend (Days 18–20)
-- Days 18–19: Core views — pipeline board (Kanban), company detail (profile + rubric + interactions + documents), contact detail, task list, Ritchie proposal review queue.
+- Days 18–19: Core views — pipeline board (Kanban), company detail (logical company profile + fillable rubric + interactions + documents), contact detail, task list, Ritchie proposal review queue.
 - Day 20: Auth flow (Google OAuth callback, httpOnly cookie), import/CSV management UI, portfolio dashboard, smoke test end-to-end on VM.
 
 ## Potential Future Features

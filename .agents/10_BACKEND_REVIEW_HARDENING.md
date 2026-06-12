@@ -44,7 +44,7 @@ Review, test, and harden the backend after the first implementation wave.
 - Services own business logic.
 - Repositories own SQLAlchemy queries.
 - Workers handle slow work.
-- Auth/permissions protect admin and agent surfaces.
+- Auth/permissions keep Ritchie's agent key scoped to agent surfaces. Authenticated human users have equal page/API access in v1 unless a route is explicitly agent-only.
 - Ritchie writes are audited and idempotent.
 - Dealroom import preserves raw rows and provenance.
 - Configurable statuses are database-backed.

@@ -28,7 +28,7 @@ Redis queue
 
 ## Core Workflows
 
-- Google OAuth login for internal users.
+- Google OAuth login for RIT Google accounts, especially emails ending in `@g.rit.edu`; future versions will also require an invitation or approved account record.
 - Company CRM records with completeness tracking and source provenance.
 - People, contacts, and RIT affiliations.
 - Deal pipeline with separate relationship and investment status lanes.
@@ -52,6 +52,7 @@ Redis queue
 - Human-curated CRM fields remain the source of truth.
 - Ritchie can write only through typed, audited, idempotent backend tools.
 - Sensitive Ritchie actions require human approval.
+- Code coverage should be measured during test runs: backend Python coverage with `coverage.py`/`pytest-cov`, and frontend TypeScript coverage with Vitest using V8/Istanbul coverage.
 
 ## Main Technologies
 

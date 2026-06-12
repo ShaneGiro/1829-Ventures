@@ -33,7 +33,7 @@ Polish the frontend, verify responsiveness, handle loading/error/empty states, a
 ## Expected Output
 
 - Responsive layouts for desktop and mobile.
-- Loading, error, empty, and permission-denied states.
+- Loading, error, and empty states. Permission-denied states only where the backend has explicit non-human or agent-only restrictions; v1 has no admin-vs-user page split.
 - Consistent forms and validation.
 - Navigation is coherent.
 - API errors are shown clearly.
