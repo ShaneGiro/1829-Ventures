@@ -84,9 +84,7 @@ async def update_task(
             session, actor=actor_from_user(actor), entity=task, changes=changes
         )
         if "owner_id" in changes and new_owner is not None:
-            await notification_service.notify_task_assignment(
-                session, task=task, owner=new_owner
-            )
+            await notification_service.notify_task_assignment(session, task=task, owner=new_owner)
     await session.commit()
     await session.refresh(task)
     return task
@@ -108,9 +106,7 @@ async def reassign_task(
             reason="task_reassigned",
         )
         if new_owner is not None:
-            await notification_service.notify_task_assignment(
-                session, task=task, owner=new_owner
-            )
+            await notification_service.notify_task_assignment(session, task=task, owner=new_owner)
     await session.commit()
     await session.refresh(task)
     return task

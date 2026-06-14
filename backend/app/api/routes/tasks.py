@@ -148,4 +148,3 @@ async def archive_task(task_id: uuid.UUID, db: DbSession, current_user: CurrentU
     require_permission(current_user, PermissionAction.ARCHIVE, PermissionResource.CRM)
     task = await task_service.archive_task(db, task_id, current_user)
     return TaskRead.model_validate(task)
-

@@ -21,5 +21,3 @@ class DocumentStorage(Protocol):
         expires_in: int = 3600,
     ) -> PresignedUpload:
         """Return a browser/client-upload URL for a document object."""
-
-

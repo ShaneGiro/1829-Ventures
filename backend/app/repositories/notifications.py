@@ -10,9 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.notification import Notification
 
 
-async def create_notification(
-    session: AsyncSession, notification: Notification
-) -> Notification:
+async def create_notification(session: AsyncSession, notification: Notification) -> Notification:
     session.add(notification)
     await session.flush()
     return notification
@@ -40,4 +38,3 @@ async def count_notifications(
     if unread_only:
         stmt = stmt.where(Notification.is_read.is_(False))
     return int(await session.scalar(stmt) or 0)
-

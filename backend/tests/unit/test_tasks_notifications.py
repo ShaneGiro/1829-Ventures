@@ -157,4 +157,3 @@ async def test_task_assignment_notification_sends_email_and_records_delivery() -
     assert notification.notification_type == "task_assigned"
     assert notification.delivery_meta["status_code"] == 202
     assert email_client.sent_to == [owner.email]
-

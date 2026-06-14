@@ -123,10 +123,7 @@ async def send_task_digest(
         return None
 
     title = f"Your 1829 task digest: {task_count} open task{'s' if task_count != 1 else ''}"
-    body = (
-        f"{len(overdue)} overdue, {len(due_today)} due today, "
-        f"{len(upcoming)} upcoming."
-    )
+    body = f"{len(overdue)} overdue, {len(due_today)} due today, {len(upcoming)} upcoming."
     notification = await create_notification(
         session,
         user_id=owner.id,
@@ -160,4 +157,3 @@ async def send_task_digest(
 
 async def get_owner(session: AsyncSession, owner_id: uuid.UUID) -> User | None:
     return await user_repo.get_user_by_id(session, owner_id)
-

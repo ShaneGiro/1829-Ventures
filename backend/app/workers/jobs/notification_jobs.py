@@ -55,7 +55,7 @@ def _send_digest_for_owner(
     local_now = now.astimezone(tz)
     today_start = datetime.combine(local_now.date(), time.min, tzinfo=tz).astimezone(UTC)
     today_end = datetime.combine(local_now.date(), time.max, tzinfo=tz).astimezone(UTC)
-    upcoming_end = (datetime.combine(local_now.date(), time.max, tzinfo=tz) + timedelta(days=7))
+    upcoming_end = datetime.combine(local_now.date(), time.max, tzinfo=tz) + timedelta(days=7)
     upcoming_end = upcoming_end.astimezone(UTC)
     tasks = _open_digest_tasks(
         session,
@@ -75,10 +75,7 @@ def _send_digest_for_owner(
         return 0
 
     title = f"Your 1829 task digest: {task_count} open task{'s' if task_count != 1 else ''}"
-    body = (
-        f"{len(overdue)} overdue, {len(due_today)} due today, "
-        f"{len(upcoming)} upcoming."
-    )
+    body = f"{len(overdue)} overdue, {len(due_today)} due today, {len(upcoming)} upcoming."
     result = get_email_client().send_email(
         to_email=owner.email,
         subject=title,
