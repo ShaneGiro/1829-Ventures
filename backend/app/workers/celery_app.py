@@ -18,12 +18,11 @@ celery_app = Celery(
     include=[
         "app.workers.jobs.dealroom_import_jobs",
         "app.workers.jobs.notification_jobs",
+        "app.workers.jobs.embedding_jobs",
+        "app.workers.jobs.analytics_jobs",
         # Later agents append their job modules here, e.g.:
         # "app.workers.jobs.gmail_jobs",
         # "app.workers.jobs.agent_jobs",
-        # "app.workers.jobs.embedding_jobs",
-        # "app.workers.jobs.notification_jobs",
-        # "app.workers.jobs.analytics_jobs",
     ],
 )
 
