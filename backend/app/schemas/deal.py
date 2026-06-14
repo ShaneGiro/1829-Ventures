@@ -5,11 +5,13 @@ from __future__ import annotations
 import uuid
 from datetime import date
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel
 
 from app.core.constants import InvestmentStatus
 from app.schemas.common import SoftDeleteRead
+from app.schemas.task import TaskRead
 
 
 class DealBase(BaseModel):
@@ -46,3 +48,20 @@ class DealRead(SoftDeleteRead, DealBase):
     company_id: uuid.UUID
     investment_status: InvestmentStatus
     deal_status_id: uuid.UUID | None = None
+
+
+class ReviewNeededTaskRead(BaseModel):
+    task: TaskRead
+
+
+class TriageRequest(BaseModel):
+    outcome: Literal["start_review", "monitor", "pass"]
+    reason_tags: list[str] = []
+    next_check_date: date | None = None
+    notes: str | None = None
+
+
+class TriageResponse(BaseModel):
+    outcome: Literal["start_review", "monitor", "pass"]
+    deal: DealRead
+    task: TaskRead | None = None

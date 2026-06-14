@@ -9,9 +9,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.routes import auth, health, users
+from app.api.routes import auth, deal_statuses, deals, health, users
 
 api_router = APIRouter()
 api_router.include_router(health.router)
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
+api_router.include_router(deals.router, prefix="/deals", tags=["deals"])
+api_router.include_router(deal_statuses.router, prefix="/deal-statuses", tags=["deal-statuses"])
