@@ -1,287 +1,678 @@
-# Model-to-Model Handoff (MODEL_COMMS)
+# Model-to-Model Handoff For Gemini
 
-Running log for AI agents handing off work on the 1829 Ventures CRM build.
-Newest handoff at the top. Read this **plus** `PLAN_v1.md`, `FILE_STRUCTURE.md`,
-`APP_WORKFLOW_AND_FILES.md`, `CONTRIBUTING.md`, and `.agents/README.md` before
-editing.
+Last updated: 2026-06-14 by Codex.
 
----
+This file is the current handoff for continuing implementation of the 1829
+Ventures CRM. It intentionally replaces the older running log. Read this file
+first, then read:
 
-## HANDOFF 1 — Claude (Sonnet/Opus) → Codex 5.5 — 2026-06-14
+- `planning/PLAN_v1.md`
+- `planning/FILE_STRUCTURE.md`
+- `planning/APP_WORKFLOW_AND_FILES.md`
+- `CONTRIBUTING.md`
+- `.agents/README.md`
+- The specific `.agents/NN_*.md` brief for the next agent you run
 
-### TL;DR
-Agent 01 (Backend Foundation) and Agent 02 (Models & Migrations) are **done,
-committed, and verified against real Postgres**. You are picking up at **Agent 03
-(Auth, Users, Permissions)**. The build sequence is strictly sequential through
-Agent 04; do not parallelize before 04 merges.
+## Current Repository State
 
-### Where the code lives
-- Repo root: `/Users/shanegirolamo/Downloads/1829 Ventures Software/1829-Ventures/`
-- It IS a git repo. kernelbot lives in a SEPARATE repo at
-  `/Users/shanegirolamo/Downloads/1829 Ventures Software/kernelbot_rit/` — do not
-  merge it in.
+Repo root:
 
-### Git state
-Branches (each agent on its own branch, per `.agents/README.md`):
+```text
+/Users/shanegirolamo/Downloads/1829 Ventures Software/1829-Ventures
 ```
-v1                              <- base branch the work started from
-agent/01-backend-foundation     <- commit e992d61
-agent/02-models-migrations      <- commit 9812eb1 (branched off 01)  <-- HEAD is here
+
+Current branch:
+
+```text
+v1
 ```
-Commits so far:
-- `9812eb1` Agent 02: data model, schemas, and initial migration
-- `e992d61` Agent 01: backend foundation
 
-Nothing has been pushed or merged to `v1`/`main` yet. Recommended: open PRs
-01→v1, 02→v1 (or merge locally) in order, OR just keep stacking branches. Create
-`agent/03-auth-users-permissions` off `agent/02-models-migrations`.
+Current local commit:
 
-> NOTE: `main` and `v1` had diverged earlier; `git pull` needs an explicit
-> `--no-rebase`/`--rebase`/`--ff-only`. Not blocking local work.
+```text
+06c25b4 Fix integrated task notification formatting
+```
 
-### Environment realities (IMPORTANT)
-- **Local Python is 3.11.8** (anaconda env `Test_3_11_8`), but the project targets
-  **3.12** (`pyproject.toml`, CI). All code is written to run on 3.11 too (uses
-  `datetime.UTC`, `StrEnum`, `X | None`). **Do NOT introduce PEP 695 syntax**
-  (`class Foo[T]`, `type X = ...`) — it breaks local 3.11 runs. Ruff rules UP046/
-  UP047 are already disabled for this reason.
-- **No virtualenv is committed.** I created a throwaway `backend/.venv` to run
-  tests, then deleted it. Recreate one to work locally (see "How to run" below).
-- **Docker Desktop must be running** for DB-backed work. On macOS: `open -a Docker`
-  then wait for `docker ps` to succeed. It was slow to start (~minutes) on this
-  machine.
-- `requirements.txt` includes torch + sentence-transformers (heavy, ~for Agent 08
-  embeddings). For fast iteration I installed only the lightweight subset into the
-  venv and skipped torch. Full `pip install -r requirements.txt` works but pulls
-  torch CPU wheel first (see note at top of requirements.txt).
+Remote state:
 
-### How to run / test locally (what I actually did)
+```text
+v1 is ahead of origin/v1 by 4 commits.
+main is older than v1.
+Nothing has been pushed after Agent 08 integration.
+```
+
+Worktrees:
+
+```text
+Only the main worktree remains.
+Agent 04/05/06 and Agent 07/08 worktrees were pruned after successful merge.
+```
+
+Important: continue all v1 implementation from branch `v1`, not `main`. The user
+wants all v1 work on `v1`.
+
+## Recent Commit History
+
+Relevant local commits, newest first:
+
+```text
+06c25b4 (HEAD -> v1) Fix integrated task notification formatting
+d3ec923 Merge branch 'agent/08-search-analytics' into v1
+da75ea3 (agent/08-search-analytics) Implement search and analytics services
+562ef7c (agent/07-documents-tasks-notifications) Implement task notifications and document storage
+73627fd (origin/v1, main) Fix integrated Dealroom test formatting
+804cadd Merge branch 'agent/06-dealroom-imports'
+926dd74 Merge branch 'agent/05-pipeline-diligence'
+7b23a0f (agent/04-core-crm-api) Implement core CRM API
+399da9b (agent/06-dealroom-imports) Implement Dealroom import preview and commit
+f5fdcc5 (agent/05-pipeline-diligence) Implement pipeline diligence workflows
+815507a (origin/main, origin/HEAD, agent/03-auth-users-permissions) Agent 03: auth users and permissions
+a7938ea docs: add worktree + orchestration plan to MODEL_COMMS handoff
+6179146 docs: MODEL_COMMS handoff for Agent 03 (Claude -> Codex 5.5)
+9812eb1 Agent 02: data model, schemas, and initial migration
+e992d61 Agent 01: backend foundation
+52e45a6 Updated agents
+```
+
+## What Has Been Implemented
+
+Backend Agents 01 through 08 are implemented and merged into `v1`.
+
+### Agent 01: Backend Foundation
+
+Commit: `e992d61`
+
+Implemented:
+
+- FastAPI app factory and router mounting.
+- Health routes.
+- Core config via Pydantic settings.
+- Dual database engines:
+  - Async SQLAlchemy engine/session for FastAPI.
+  - Sync SQLAlchemy engine/session for Celery and Alembic.
+- PyJWT helpers and API-key hashing helpers.
+- Typed application exceptions.
+- JSON/request-ID logging.
+- Redis-backed rate-limit middleware.
+- Celery app bootstrap.
+- Docker Compose services for API, worker, Postgres/PostGIS/pgvector, Redis, MinIO.
+- CI, Makefile, `.env.example`, backup script, Dockerfiles.
+
+Important files:
+
+- `backend/app/main.py`
+- `backend/app/core/config.py`
+- `backend/app/core/database.py`
+- `backend/app/core/security.py`
+- `backend/app/api/router.py`
+- `backend/app/api/middleware.py`
+- `backend/app/workers/celery_app.py`
+
+### Agent 02: Models, Schemas, Migrations
+
+Commit: `9812eb1`
+
+Implemented:
+
+- 23 SQLAlchemy models plus `company_tags` join table.
+- Initial Alembic schema migration:
+  - `backend/alembic/versions/4d6ffdeb3a50_initial_schema.py`
+- Pydantic schemas for core entities.
+- Domain constants/enums in `backend/app/core/constants.py`.
+- Seed script for funds/statuses.
+
+Key model areas:
+
+- CRM: `User`, `Company`, `Person`, `Affiliation`, `CompanyContact`,
+  `Interaction`.
+- Deals/diligence: `Deal`, `Rubric`, `DiligenceChecklistItem`, `DealStatus`.
+- Fund/portfolio: `Fund`, `Investment`, `PortfolioMetric`.
+- Documents/tasks/tags/imports/audit/agent/notifications.
+
+Migration gotchas already handled:
+
+- Postgres image builds PostGIS plus pgvector.
+- Alembic ignores PostGIS tiger/topology tables.
+- GeoAlchemy2 manages the `companies.location` GiST index; do not add a duplicate
+  explicit index for it.
+- Generated migrations involving GeoAlchemy2/pgvector may need manual imports.
+
+### Agent 03: Auth, Users, Permissions
+
+Commit: `815507a`
+
+Implemented:
+
+- Google OAuth wrapper.
+- Auth routes:
+  - `/api/auth/login`
+  - `/api/auth/callback`
+  - `/api/auth/refresh`
+  - `/api/auth/logout`
+  - `/api/auth/me`
+- User routes:
+  - `/api/users`
+  - `/api/users/me`
+  - `/api/users/{user_id}`
+- User repository.
+- Central v1 permission guard.
+- Human JWT/session-cookie auth.
+- Scoped Ritchie API-key dependency.
+- Agent API keys are rejected from ordinary human routes with 403.
+- `backend/scripts/rotate_agent_key.py`.
+- Starlette `SessionMiddleware` for OAuth state.
+- `itsdangerous` dependency for signed session cookies.
+
+Important rule: authenticated human users have equal access in v1. Role fields
+exist for the future but are not currently used to restrict ordinary user pages.
+
+### Agent 04: Core CRM API
+
+Commit: `7b23a0f`
+
+Implemented:
+
+- CRUD routes and services for:
+  - Companies
+  - People
+  - Company contacts
+  - Affiliations
+  - Interactions
+  - Funds
+  - Investments
+  - Portfolio metrics
+  - Documents metadata
+- Repositories for core CRM entities.
+- Audit service and audit context.
+- Company completeness calculation.
+- Primary company contact behavior.
+- Document metadata and presigned-upload service boundary.
+- Soft archive endpoints where models support `archived_at`.
+
+Important files:
+
+- `backend/app/api/routes/companies.py`
+- `backend/app/api/routes/people.py`
+- `backend/app/api/routes/interactions.py`
+- `backend/app/api/routes/investments.py`
+- `backend/app/api/routes/portfolio_metrics.py`
+- `backend/app/api/routes/documents.py`
+- `backend/app/services/company_service.py`
+- `backend/app/services/document_service.py`
+- `backend/app/services/audit_service.py`
+- `backend/app/core/audit.py`
+- Core repositories under `backend/app/repositories/`
+
+### Agent 05: Pipeline And Diligence
+
+Commit: `f5fdcc5`, merged via `926dd74`
+
+Implemented:
+
+- Deal CRUD.
+- Configurable deal status API.
+- Relationship/investment status service logic.
+- Review-needed triage:
+  - Start investment review.
+  - Monitor.
+  - Pass.
+- Pass requires reason tags.
+- Monitor requires future next-check date and creates a reminder task.
+- Start-review creates/uses a deal, moves to initial review, initializes rubric
+  and checklist.
+- Rubric gate enforcement.
+- 15 sub-score weighted scoring and composite thresholds.
+- Diligence checklist initialization and completion tracking.
+
+Important files:
+
+- `backend/app/api/routes/deals.py`
+- `backend/app/api/routes/deal_statuses.py`
+- `backend/app/services/deal_service.py`
+- `backend/app/services/pipeline_service.py`
+- `backend/app/services/diligence_service.py`
+- `backend/app/repositories/deals.py`
+- `backend/app/repositories/deal_statuses.py`
+
+### Agent 06: Dealroom Imports
+
+Commit: `399da9b`, merged via `804cadd`
+
+Implemented:
+
+- Dealroom CSV parser and import flow.
+- Metadata row/header detection for the provided CSV.
+- Semicolon-delimited field parsing.
+- Parallel founder/funding arrays.
+- Latitude/longitude handling.
+- Dealroom taxonomy mapping to 1829 sector taxonomy.
+- Import preview and commit separation.
+- Partial commit support.
+- Raw row/provenance preservation.
+- Imported companies start as `imported_unreviewed`.
+- Celery job registration for Dealroom import jobs.
+
+Important files:
+
+- `backend/app/api/routes/imports.py`
+- `backend/app/integrations/dealroom_csv.py`
+- `backend/app/services/dealroom_import_service.py`
+- `backend/app/repositories/imports.py`
+- `backend/app/workers/jobs/dealroom_import_jobs.py`
+
+### Agent 07: Documents, Tasks, Notifications
+
+Commit: `562ef7c`, merged into `v1` before Agent 08.
+
+Implemented:
+
+- Task API route.
+- Task service and repository.
+- Notification service and repository.
+- Storage abstraction.
+- MinIO S3-compatible storage adapter.
+- SendGrid integration wrapper.
+- Notification Celery jobs and registration.
+- Document service extended for storage/presigned-upload behavior.
+- Task completion history fields.
+- Task model/schema updates.
+- Notification/document schema updates.
+- Alembic migration:
+  - `backend/alembic/versions/8f3c2b71e4a9_task_completion_history.py`
+
+Important files:
+
+- `backend/app/api/routes/tasks.py`
+- `backend/app/services/task_service.py`
+- `backend/app/services/notification_service.py`
+- `backend/app/integrations/storage.py`
+- `backend/app/integrations/minio_storage.py`
+- `backend/app/integrations/sendgrid.py`
+- `backend/app/workers/jobs/notification_jobs.py`
+
+### Agent 08: Search And Analytics
+
+Commit: `da75ea3`, merged via `d3ec923`.
+
+Implemented:
+
+- Analytics API route.
+- Search service:
+  - Postgres full-text keyword search.
+  - pgvector semantic/context retrieval.
+- Lazy configurable sentence-transformer embedding integration.
+- Embedding worker jobs:
+  - Companies.
+  - Interactions.
+  - Backfill missing embeddings.
+- Analytics repository/service/routes for:
+  - Pipeline.
+  - Portfolio.
+  - Source.
+  - Sector.
+  - Interaction cadence.
+  - Thesis fit.
+  - Agent activity.
+- Celery job registration for embedding and analytics jobs.
+- Environment settings for embeddings.
+- Alembic migration:
+  - `backend/alembic/versions/7a8f1b2c3d4e_search_vector_indexes.py`
+
+Important files:
+
+- `backend/app/api/routes/analytics.py`
+- `backend/app/services/search_service.py`
+- `backend/app/services/analytics_service.py`
+- `backend/app/repositories/analytics.py`
+- `backend/app/integrations/embeddings.py`
+- `backend/app/workers/jobs/embedding_jobs.py`
+- `backend/app/workers/jobs/analytics_jobs.py`
+
+## Verification Already Run
+
+After Agents 07 and 08 were merged into `v1`, Codex ran:
+
 ```bash
-cd "/Users/shanegirolamo/Downloads/1829 Ventures Software/1829-Ventures"
-cp .env.example .env                      # if not present
-docker compose up -d postgres redis       # postgres image is BUILT (has pgvector)
-
 cd backend
+.venv/bin/ruff check .
+.venv/bin/ruff format --check app tests scripts
+DEBUG=false .venv/bin/mypy
+DEBUG=false .venv/bin/python -m pytest tests/unit -q --no-cov
+DEBUG=false .venv/bin/python -m pytest -q
+```
+
+Results:
+
+```text
+ruff check: passed
+ruff format --check: passed
+mypy: passed
+unit tests: 57 passed
+full tests with local Postgres: 62 passed
+```
+
+The full pytest run required access to localhost Postgres and was run with
+Docker Postgres/Redis available.
+
+Important environment quirk:
+
+```text
+The ambient shell has DEBUG=release in some sessions.
+Pydantic settings reject that because DEBUG must be boolean.
+Use DEBUG=false for backend commands unless the environment is cleaned.
+```
+
+## Immediate Known Issue: Alembic Has Two Heads
+
+This is the first thing Gemini should address before or during the next backend
+work.
+
+Current Alembic heads:
+
+```text
+7a8f1b2c3d4e (head)
+8f3c2b71e4a9 (head)
+```
+
+Why:
+
+- Agent 07 added `8f3c2b71e4a9_task_completion_history.py`.
+- Agent 08 added `7a8f1b2c3d4e_search_vector_indexes.py`.
+- Both currently have:
+
+```text
+down_revision = "4d6ffdeb3a50"
+```
+
+This is expected from parallel branches, but it must be reconciled before relying
+on Alembic upgrade/check in CI or deployment.
+
+Recommended fix:
+
+- Create a no-op Alembic merge migration on `v1` with both revisions as
+  `down_revision`, or restamp one migration after the other if you prefer a
+  linear migration history.
+- A merge migration is probably least invasive because the two migrations touch
+  unrelated schema/index areas.
+- After the fix, verify:
+
+```bash
+cd backend
+DEBUG=false .venv/bin/alembic heads
+DEBUG=false .venv/bin/alembic upgrade head
+DEBUG=false .venv/bin/alembic check
+```
+
+Expected after fix:
+
+```text
+Only one Alembic head.
+No new upgrade operations detected.
+```
+
+## Local Environment Notes
+
+Python/tooling:
+
+- The repo targets Python 3.12 in `backend/pyproject.toml`.
+- Local environment during Codex work had Python 3.14 available, but tests passed
+  in `backend/.venv`.
+- Do not introduce PEP 695 syntax (`class Foo[T]`, `type X = ...`) because prior
+  local runs used Python 3.11 and the project intentionally avoided that syntax.
+- Ruff ignores UP046/UP047 for this reason.
+
+Backend venv:
+
+```bash
+cd "/Users/shanegirolamo/Downloads/1829 Ventures Software/1829-Ventures/backend"
 python3 -m venv .venv
 .venv/bin/pip install -U pip
-# lightweight subset (skip torch unless you need embeddings):
-.venv/bin/pip install "fastapi>=0.115" "uvicorn[standard]" "pydantic>=2.10" \
-  "pydantic-settings>=2.7" "sqlalchemy>=2.0.36" asyncpg psycopg2-binary \
-  "pyjwt[crypto]" "redis>=5.2" "celery>=5.4" httpx pytest pytest-asyncio \
-  pytest-cov "alembic>=1.14" geoalchemy2 pgvector email-validator ruff mypy authlib
-
-export DATABASE_URL="postgresql://crm:crm@localhost:5432/crm" JWT_SECRET="test"
-
-# migrations (run alembic with venv/bin on PATH so the ruff post-write hook works):
-PATH="$PWD/.venv/bin:$PATH" alembic upgrade head
-.venv/bin/python -m scripts.seed_funds
-
-# quality gate (all currently green):
-.venv/bin/ruff check . && .venv/bin/ruff format --check app tests scripts
-.venv/bin/mypy
-.venv/bin/python -m pytest -q          # 16 passed
-# DB-free only:  pytest -m "not integration"
+.venv/bin/pip install -r requirements.txt
 ```
-Settings load `.env` from the CWD. When running from `backend/`, either export the
-env vars (as above) or create a `backend/.env`. The repo `.env` is at root.
 
-### What Agent 01 delivered (commit e992d61)
-FastAPI + Celery scaffold. Key files:
-- `backend/app/core/config.py` — Pydantic-settings; single `DATABASE_URL` →
-  `async_database_url` (asyncpg) + `sync_database_url` (psycopg2) computed props.
-  `allowed_domains_list`, `cors_origins_list` helpers. `database_url` is typed
-  `str` (NOT PostgresDsn — that broke mypy default assignment).
-- `backend/app/core/database.py` — **dual engines**: `async_engine`/
-  `AsyncSessionLocal` + `get_async_session` (API); `sync_engine`/
-  `SyncSessionLocal` + `get_sync_session` (Celery + Alembic). Workers never use
-  async.
-- `backend/app/core/security.py` — PyJWT `create_access_token`/
-  `decode_access_token`; API-key `generate/hash/verify` (sha256 + hmac compare).
-- `backend/app/core/exceptions.py` — `AppError` hierarchy incl. `PolicyBlockedError`
-  (used by Agent 10), `PermissionDeniedError`, etc. `main.py` maps these to HTTP.
-- `backend/app/core/logging.py` — JSON logging + `request_id_ctx` ContextVar.
-- `backend/app/core/dependencies.py` — `DbSession = Annotated[AsyncSession,
-  Depends(get_async_session)]`. **Agent 03 adds current-user/permission deps here.**
-- `backend/app/api/middleware.py` — `RequestIDMiddleware` + `RateLimitMiddleware`
-  (Redis token-bucket, tiers `agent_read` 120/min, `agent_write` 60/min,
-  `default` 300/min; fails open). Agent 10 refines tier classification.
-- `backend/app/api/router.py` — single `api_router`; **register new sub-routers
-  here.** Currently only health.
-- `backend/app/api/routes/health.py` — `/api/health`, `/api/health/ready`.
-- `backend/app/main.py` — app factory, mounts router at `settings.api_v1_prefix`
-  (`/api`), docs at `/api/docs`, OpenAPI at `/api/openapi.json`.
-- `backend/app/workers/celery_app.py` — Celery bootstrap, `health.ping` task.
-- Infra: `docker-compose.yml` (api, worker, postgres[BUILT], redis, minio,
-  minio-init), `docker-compose.prod.yml` (stub), `Makefile`, `.env.example`,
-  `.editorconfig`, `.gitignore`, `.github/workflows/ci.yml`,
-  `backend/scripts/backup_db.sh`, `docker/postgres/{Dockerfile,init.sql}`,
-  `docker/minio/init.sh`.
+For faster local verification, Codex installed the lightweight subset plus needed
+declared dependencies into `backend/.venv`. Full requirements include heavy AI
+dependencies (`sentence-transformers` and torch note).
 
-### What Agent 02 delivered (commit 9812eb1)
-**23 models + `company_tags` join (24 tables)** in `backend/app/models/`, all
-registered in `models/__init__.py` (Alembic reads it). All use
-`base.py` mixins: `UUIDPrimaryKeyMixin`, `TimestampMixin`, `SoftDeleteMixin`
-(`archived_at` + `is_archived`).
-- CRM: `user`, `company` (PostGIS `location` Geometry POINT 4326 + pgvector
-  `embedding` Vector(384) + `field_provenance` JSONB + `imported_unreviewed`),
-  `person`, `affiliation`, `company_contact`, `interaction` (pgvector embedding).
-- Deals: `deal`, `rubric` (4 `gate_*` knockout booleans + 15 named sub-score
-  ints + `composite_score` float — composite computed later by Agent 05's
-  diligence service), `diligence_checklist_item`, `deal_status` (configurable,
-  DB-backed, `is_system`/`is_terminal`/`sort_order`).
-- Fund: `fund`, `investment`, `portfolio_metric`.
-- Workflow: `document`, `task` (owner nullable = shared queue; `created_by_type`
-  ActorType; `watcher_ids` JSONB list), `tag` (`company_tags` Table + TagKind
-  user/system/pass_reason).
-- Imports: `import_batch`, `import_row` (raw_data + field_provenance + conflicts
-  JSONB).
-- Governance: `audit_log` (actor_type/old/new/reason), `ai_audit_log` (Ritchie
-  intent→committed/failed, `idempotency_key` UNIQUE), `agent_event_log` (incl.
-  `policy_blocked`, AgentEventStatus), `agent_policy` (**binary** PolicyState
-  authorized/blocked, unique on (tool, field_name)), `notification`.
-- **There is NO proposal/approval model — do not add one.** Governance is the
-  binary `agent_policy` table only.
+Docker:
 
-Schemas in `backend/app/schemas/` — Create/Read/Update per entity on a shared
-`common.py` base (`ORMModel`, `TimestampedRead`, `SoftDeleteRead`,
-`PaginatedResponse[T]`). Downstream agents extend with route-specific models.
-
-`backend/app/core/constants.py` — enums & maps you will reuse:
-`RelationshipStatus`, `InvestmentStatus`, `Role`, `ActorType`, `InteractionType`,
-`TaskStatus/Priority`, `TagKind`, `DocumentSource`, `NotificationChannel`,
-`ImportStatus`, `ImportRowStatus`, `FundStatus`, `DiligenceItemStatus`,
-`PolicyState`, `AgentEventStatus`, `AiWriteStatus`; `SECTOR_TAXONOMY`,
-`SEED_DEAL_STATUSES`, `RUBRIC_CATEGORIES`, `RUBRIC_SUBSCORES` (15),
-`RUBRIC_KNOCKOUT_GATES` (4), score thresholds, `COMPANY_COMPLETENESS_FIELDS`,
-`DEFAULT_BLOCKED_TOOLS`, `EMBEDDING_DIM = 384`.
-
-Migration: `backend/alembic/versions/4d6ffdeb3a50_initial_schema.py` (creates all
-24 tables). `seed_funds.py` seeds Beta, Fund I + 7 pipeline stages (idempotent).
-
-### Migration gotchas already solved (don't re-break these)
-1. **Postgres needs PostGIS AND pgvector.** The stock `postgis/postgis:16-3.4`
-   image has NO pgvector. `docker/postgres/Dockerfile` extends it and
-   `apt-get install postgresql-16-pgvector`. Compose `build:`s it; CI builds+runs
-   it as a container (GitHub Actions `services:` can't build images).
-2. **`alembic/env.py` has an `include_name` filter** so autogenerate ignores the
-   ~37 PostGIS tiger/topology system tables. Without it, autogenerate tries to
-   manage them. Keep it.
-3. **GeoAlchemy2 auto-creates/drops the `idx_companies_location` GiST index** on
-   table create/drop. The explicit `op.create_index`/`op.drop_index` for it were
-   REMOVED from the migration (they caused "relation already exists"). If you
-   regenerate a migration touching `companies.location`, remove those again.
-4. **Autogenerate omits `import geoalchemy2` / `import pgvector.sqlalchemy`** from
-   the migration header — add them by hand after generating (there's a reminder
-   comment in `env.py`). A `render_item` hook was tried and did NOT work in this
-   version combo; don't waste time on it.
-5. Verified: upgrade→downgrade→upgrade clean; `alembic check` = "No new upgrade
-   operations detected" (no drift).
-
-### Tooling config notes
-- `pyproject.toml`: ruff (line 100, E/W/F/I/B/C4/UP/SIM/TID; ignores B008,
-  UP046, UP047) with `alembic/versions` excluded from ruff. mypy `strict = true`
-  but `disallow_untyped_decorators = false` (Celery `@task` is untyped); missing-
-  stub overrides include geoalchemy2, pgvector, celery, authlib, sendgrid,
-  sentence_transformers, factory.
-- JSONB columns are typed `Mapped[dict[str, Any]]` / `Mapped[list[Any]]` (mypy
-  strict requires the args). Follow that pattern for new JSONB columns.
-- pytest: `asyncio_mode = auto`, marker `integration` for DB-backed tests.
-  `addopts` turns on `--cov`; use `--no-cov` for quick runs.
-
-### YOUR NEXT TASK — Agent 03 (Auth, Users, Permissions)
-Read `.agents/03_AUTH_USERS_PERMISSIONS.md`. Branch off `agent/02-models-migrations`.
-Deliver (May Edit list is in the brief):
-- `integrations/google_oauth.py` — Google OAuth client (authlib is in
-  requirements) + profile fetch (People API).
-- `services/auth_service.py` — OAuth callback handling, account auto-create on
-  first eligible login, JWT issue, agent-key auth. Use `core/security.py` helpers.
-- Domain allowlist: eligible RIT Google accounts, esp. `@g.rit.edu`. Config has
-  `allowed_domains_list` already. v1 = anyone with eligible domain can log in.
-  Structure for future invite-gating but don't build it (mark pending).
-- `services/permission_service.py` + `core/permissions.py` — central
-  `require_permission(user, action, resource)`; returns True for any authenticated
-  human in v1. Add the matching FastAPI deps to `core/dependencies.py`
-  (`CurrentUser`, etc.).
-- Ritchie scoped API-key auth: only `/agent/*` routes accept the agent key; the
-  key rejects all other routes with 403. Enforce at the API layer. The `User`
-  model already has `is_agent` + `api_key_hash`.
-- `api/routes/auth.py` (login/callback/refresh/logout/me) and `api/routes/users.py`.
-  **Register both routers in `api/router.py`.**
-- `scripts/rotate_agent_key.py`.
-- Tests: domain allowlist (incl. `@g.rit.edu`), permission guard equal-access,
-  agent-key accept/reject. JWT stored in httpOnly cookie (see PLAN auth flow).
-- Add any new env vars to `.env.example` (GOOGLE_* and AGENT_API_KEY already there).
-
-### Sequence reminder (from .agents/README.md)
-01→02→03→04 sequential. After 04: 05/06/07 parallel (use git worktrees if running
-concurrently). Then 08 (after 05), 09 (after 04+07), 10 (after 03/04/05/07/08),
-11 (after all). Frontend 20→(21+22)→23.
-
-### Parallel execution: git worktrees + orchestration plan
-**This was discussed with the user and is the agreed approach.** Worktrees and
-branches are NOT either/or — every worktree IS on its own branch; a worktree just
-gives that branch its own directory on disk so multiple agents can run at the
-SAME time without clobbering each other's working files.
-
-Rules of thumb decided with the user:
-- **Sequential agents (01→04, and 08/09/10/11 which each depend on prior merges):**
-  no worktree needed — work on a branch in the main checkout, one at a time.
-  This is what I did for 01 and 02.
-- **Concurrent agents (the 05/06/07 wave, and the 21/22 frontend wave):** give each
-  its own worktree so they run in parallel. Worktrees prevent **filesystem
-  collisions** (two agents writing the same file mid-run). They do NOT prevent
-  **merge conflicts** — if two branches edit the same file, you still resolve that
-  at merge time. That's expected and handled by the "shared files / single owner"
-  list in `.agents/README.md` (e.g. `docker-compose.yml`, `api/router.py`,
-  `models/__init__.py`, `alembic/versions/`).
-
-Worktree setup (only AFTER Agent 04 has merged to the integration branch, since
-05/06/07 depend on 04):
 ```bash
 cd "/Users/shanegirolamo/Downloads/1829 Ventures Software/1829-Ventures"
-git worktree add ../1829-agent-05 -b agent/05-pipeline-diligence <base>
-git worktree add ../1829-agent-06 -b agent/06-dealroom-imports   <base>
-git worktree add ../1829-agent-07 -b agent/07-docs-tasks-notifs  <base>
-# <base> = the branch/commit where 04 is merged (e.g. v1 after 01-04 land, or
-# agent/04-core-crm-api). Each worktree is a full checkout on its own branch.
-# Clean up when a branch is merged:  git worktree remove ../1829-agent-05
+docker compose up -d postgres redis
 ```
-Each agent runs in its own directory (`../1829-agent-05`, etc.). They share the
-same `.git` object store but have independent working trees, so concurrent edits
-are safe. Note: each worktree needs its own `backend/.venv` (venvs aren't shared
-and aren't committed); Docker/Postgres on localhost:5432 is shared, so if running
-DB-backed tests truly concurrently, either serialize them or point each at a
-separate database (`crm`, `crm_06`, `crm_07`) via that worktree's `DATABASE_URL`.
 
-**Orchestration ("one agent managing the others"):** the intended pattern is an
-orchestrator agent that (1) creates the worktrees + branches, (2) spawns a
-sub-agent per worktree, each briefed with its `.agents/NN_*.md` task doc and
-pointed at its worktree path, (3) collects results and merges branches in
-dependency order, resolving the shared-file conflicts. Caveat the user is aware
-of: an orchestrator hands out assignments and gets results back when each
-sub-agent finishes — it cannot live-supervise mid-run. So keep each sub-agent's
-scope tight (the briefs already enforce disjoint file scopes for the parallel
-waves). If you (Codex) don't have a sub-agent spawning mechanism, just run the
-parallel-wave agents yourself one worktree at a time — the worktrees still keep
-the branches cleanly separated for merging.
+Postgres image builds from `docker/postgres/Dockerfile` so pgvector is available.
 
-Alembic caveat for the parallel wave: migrations are append-only and conflict-
-prone. Each of 05/06/07 that adds a migration must rebase on the latest merged
-head and re-stamp `down_revision` before merging (per `.agents/README.md`).
+Settings:
 
-### Non-negotiable design rules (from the plan)
-- Ritchie governance is **binary** authorized/blocked. No proposal/approval queue.
-- Every create/update/archive is **audited** (actor, ts, old, new) regardless of
-  actor (human/import/system/Ritchie). Soft-delete via `archived_at`; never hard
-  delete core entities.
-- Human-curated fields are source of truth; Ritchie can't overwrite unless the
-  field is explicitly `authorized` in the runtime policy.
-- Routes = HTTP only; services = business logic/permissions/audit; repositories =
-  SQLAlchemy; workers = slow/async; Ritchie talks only via the typed API/MCP.
-- Frontend domain types come from OpenAPI codegen — never hand-written.
-- MCP transport = Streamable HTTP (SSE deprecated).
+- `.env.example` has auth, DB, storage, email, and embedding settings.
+- Settings load `.env` from current working directory, so running from `backend/`
+  may need exported env vars or a `backend/.env`.
+- Use `DEBUG=false` in commands if the shell has `DEBUG=release`.
 
-### Verification expectations before you commit
-Run and pass: `ruff check .`, `ruff format --check`, `mypy`, `pytest` (with
-Docker Postgres up for integration tests). Keep CI green. End commit messages with
-`Co-Authored-By:` per the repo convention.
+Common verification commands:
+
+```bash
+cd backend
+.venv/bin/ruff check .
+.venv/bin/ruff format --check app tests scripts
+DEBUG=false .venv/bin/mypy
+DEBUG=false .venv/bin/python -m pytest tests/unit -q --no-cov
+DEBUG=false .venv/bin/python -m pytest -q
+```
+
+## Architectural Rules To Preserve
+
+- Routes handle HTTP only.
+- Services own business logic, permissions, audit, workflow transitions, and
+  source-of-truth behavior.
+- Repositories isolate SQLAlchemy queries.
+- Workers handle slow/background work.
+- Every create/update/archive should be audited with actor, timestamp, old/new
+  values, and reason/context where relevant.
+- Core entities should soft-delete via `archived_at`; do not add hard-delete
+  endpoints for core CRM data.
+- Human-curated CRM fields remain source of truth.
+- Ritchie governance is strictly binary:
+  - `authorized`: execute directly, audit, idempotent.
+  - `blocked`: reject and log.
+- Do not build proposals, approval queues, approve/reject emails, or per-change
+  human review workflows for Ritchie.
+- Ritchie must use the scoped API/MCP surface only; no direct DB/filesystem
+  access.
+- Authenticated human users have equal v1 page/API access unless an endpoint is
+  explicitly agent-only.
+- Frontend domain types must be generated from FastAPI OpenAPI via
+  `openapi-typescript`; do not hand-write TypeScript mirrors of Pydantic schemas.
+
+## Remaining Backend Plan
+
+### Immediate cleanup before feature work
+
+Fix the two Alembic heads described above.
+
+### Agent 09: Gmail Ingestion
+
+Brief: `.agents/09_GMAIL_INGESTION.md`
+
+Can run now because dependencies are complete:
+
+- Agent 02 models/migrations.
+- Agent 04 core CRM API.
+- Agent 07 document/storage abstraction.
+
+Scope:
+
+- `backend/app/api/routes/email.py`
+- `backend/app/services/gmail_ingestion_service.py`
+- `backend/app/workers/jobs/gmail_jobs.py`
+- `backend/app/repositories/interactions.py`
+- Email/interaction schemas only if needed.
+- Gmail ingestion tests.
+
+Key requirements:
+
+- CRM receives notifications from kernelbot; do not implement Gmail API/IMAP.
+- Raw forwarded message is always stored before parsing.
+- Parse original sender, recipient, date, subject, content.
+- Parse failures and match failures go to review; never silently drop emails.
+- Deterministic matching before AI/fuzzy matching.
+- Matched emails become interactions with provenance.
+- Capture attachment metadata; store small attachments via storage abstraction.
+- Founder/company reply should call Agent 05 pipeline service to move contacted
+  companies to `review_needed`; do not reimplement pipeline transition logic.
+- Slow work goes to workers.
+
+### Agent 10: Ritchie Agent Integration
+
+Brief: `.agents/10_RITCHIE_AGENT.md`
+
+Can run now because dependencies are complete:
+
+- Agent 03 auth/users/permissions.
+- Agent 04 core CRM API.
+- Agent 05 pipeline/diligence.
+- Agent 07 documents/tasks/notifications.
+- Agent 08 search/analytics.
+
+Scope:
+
+- `backend/app/api/routes/agent.py`
+- `backend/app/agent/`
+- `backend/app/services/agent_service.py`
+- `backend/app/services/agent_policy_service.py`
+- AI audit paths in `backend/app/services/audit_service.py`
+- `backend/app/core/idempotency.py`
+- `backend/app/repositories/agent.py`
+- `backend/app/integrations/ritchie_client.py`
+- `backend/app/workers/jobs/agent_jobs.py`
+- Agent tests and fixtures.
+
+Key requirements:
+
+- Typed tool definitions with JSON Schema.
+- Runtime binary authorization policy using `agent_policy` model.
+- Sensitive defaults blocked:
+  - investment amount
+  - valuation
+  - ownership
+  - deal stage/status
+  - legal terms
+  - investment recommendation
+  - portfolio marks
+  - rubric scores
+- Authorized writes record AI audit intent as `pending` before canonical write,
+  then `committed` or `failed`.
+- Blocked calls never write and log `policy_blocked` agent event.
+- Every write carries idempotency key.
+- `/agent/context` uses Agent 08 search service.
+- Streamable HTTP MCP surface; SSE is deprecated.
+- Agent failures should retry/backoff and never block user-facing workflows.
+
+### Parallelization recommendation
+
+Agents 09 and 10 can run in parallel worktrees now, but they may both touch:
+
+- `backend/app/api/router.py`
+- `backend/app/workers/celery_app.py`
+- Possibly `backend/app/repositories/interactions.py`
+- Possibly audit-related services
+
+Use worktrees and merge in a controlled order:
+
+```bash
+git worktree add ../1829-agent-09 -b agent/09-gmail-ingestion v1
+git worktree add ../1829-agent-10 -b agent/10-ritchie-agent v1
+```
+
+After each agent commits:
+
+1. Merge Agent 09 into `v1` or Agent 10 into `v1`.
+2. Resolve expected router/Celery conflicts by keeping both route/job
+   registrations.
+3. Rebase or merge the second branch onto updated `v1`.
+4. Run full backend verification.
+
+### Agent 11: Backend Review And Hardening
+
+Brief: `.agents/11_BACKEND_REVIEW_HARDENING.md`
+
+Run only after Agents 09 and 10 are merged.
+
+Goals:
+
+- Fix integration bugs.
+- Verify migration path, including Alembic heads.
+- Strengthen integration tests.
+- Confirm no Ritchie proposal/approval remnants exist.
+- Confirm every create/update/archive path audits correctly.
+- Confirm Ritchie key is scoped to agent routes only.
+- Confirm backup script works and restore path is viable.
+- Stabilize API contracts for frontend.
+
+## Frontend Status And Plan
+
+No frontend implementation has started.
+
+Frontend begins after backend is stable enough for API contracts, ideally after
+Agent 11:
+
+1. Agent 20: frontend foundation.
+2. Agents 21 and 22 in parallel:
+   - CRM workflows.
+   - Imports/agent/portfolio pages.
+3. Agent 23: frontend polish.
+
+Agent 20 brief:
+
+- `frontend/`
+- Vite React TypeScript app.
+- shadcn/ui and Tailwind.
+- React Router.
+- App shell/sidebar.
+- API client and auth hook.
+- TanStack Query.
+- Protected route/session handling.
+- OpenAPI type generation via `openapi-typescript`.
+- Frontend lint/typecheck/test in CI.
+
+Do not begin frontend by hand-writing domain types. Generate from the FastAPI
+OpenAPI spec.
+
+## Worktree Cleanup Done
+
+Codex created and later pruned these worktrees:
+
+```text
+../1829-agent-04
+../1829-agent-05
+../1829-agent-06
+../1829-agent-07
+../1829-agent-08
+```
+
+Only the main `1829-Ventures` checkout remains.
+
+## Final Notes For Gemini
+
+- Work from `v1`.
+- Start by fixing the Alembic multiple-head issue.
+- Then run Agents 09 and 10, preferably in parallel worktrees if tooling allows.
+- Merge back into `v1`, not `main`.
+- Keep commits scoped and include the repo convention:
+
+```text
+Co-Authored-By: Gemini <gemini@google.com>
+```
+
+- Run the backend gate after integration:
+
+```bash
+cd backend
+.venv/bin/ruff check .
+.venv/bin/ruff format --check app tests scripts
+DEBUG=false .venv/bin/mypy
+DEBUG=false .venv/bin/python -m pytest -q
+```
+
+- Do not push unless the user asks.
