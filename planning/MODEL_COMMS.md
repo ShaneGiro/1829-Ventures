@@ -217,6 +217,58 @@ Deliver (May Edit list is in the brief):
 concurrently). Then 08 (after 05), 09 (after 04+07), 10 (after 03/04/05/07/08),
 11 (after all). Frontend 20→(21+22)→23.
 
+### Parallel execution: git worktrees + orchestration plan
+**This was discussed with the user and is the agreed approach.** Worktrees and
+branches are NOT either/or — every worktree IS on its own branch; a worktree just
+gives that branch its own directory on disk so multiple agents can run at the
+SAME time without clobbering each other's working files.
+
+Rules of thumb decided with the user:
+- **Sequential agents (01→04, and 08/09/10/11 which each depend on prior merges):**
+  no worktree needed — work on a branch in the main checkout, one at a time.
+  This is what I did for 01 and 02.
+- **Concurrent agents (the 05/06/07 wave, and the 21/22 frontend wave):** give each
+  its own worktree so they run in parallel. Worktrees prevent **filesystem
+  collisions** (two agents writing the same file mid-run). They do NOT prevent
+  **merge conflicts** — if two branches edit the same file, you still resolve that
+  at merge time. That's expected and handled by the "shared files / single owner"
+  list in `.agents/README.md` (e.g. `docker-compose.yml`, `api/router.py`,
+  `models/__init__.py`, `alembic/versions/`).
+
+Worktree setup (only AFTER Agent 04 has merged to the integration branch, since
+05/06/07 depend on 04):
+```bash
+cd "/Users/shanegirolamo/Downloads/1829 Ventures Software/1829-Ventures"
+git worktree add ../1829-agent-05 -b agent/05-pipeline-diligence <base>
+git worktree add ../1829-agent-06 -b agent/06-dealroom-imports   <base>
+git worktree add ../1829-agent-07 -b agent/07-docs-tasks-notifs  <base>
+# <base> = the branch/commit where 04 is merged (e.g. v1 after 01-04 land, or
+# agent/04-core-crm-api). Each worktree is a full checkout on its own branch.
+# Clean up when a branch is merged:  git worktree remove ../1829-agent-05
+```
+Each agent runs in its own directory (`../1829-agent-05`, etc.). They share the
+same `.git` object store but have independent working trees, so concurrent edits
+are safe. Note: each worktree needs its own `backend/.venv` (venvs aren't shared
+and aren't committed); Docker/Postgres on localhost:5432 is shared, so if running
+DB-backed tests truly concurrently, either serialize them or point each at a
+separate database (`crm`, `crm_06`, `crm_07`) via that worktree's `DATABASE_URL`.
+
+**Orchestration ("one agent managing the others"):** the intended pattern is an
+orchestrator agent that (1) creates the worktrees + branches, (2) spawns a
+sub-agent per worktree, each briefed with its `.agents/NN_*.md` task doc and
+pointed at its worktree path, (3) collects results and merges branches in
+dependency order, resolving the shared-file conflicts. Caveat the user is aware
+of: an orchestrator hands out assignments and gets results back when each
+sub-agent finishes — it cannot live-supervise mid-run. So keep each sub-agent's
+scope tight (the briefs already enforce disjoint file scopes for the parallel
+waves). If you (Codex) don't have a sub-agent spawning mechanism, just run the
+parallel-wave agents yourself one worktree at a time — the worktrees still keep
+the branches cleanly separated for merging.
+
+Alembic caveat for the parallel wave: migrations are append-only and conflict-
+prone. Each of 05/06/07 that adds a migration must rebase on the latest merged
+head and re-stamp `down_revision` before merging (per `.agents/README.md`).
+
 ### Non-negotiable design rules (from the plan)
 - Ritchie governance is **binary** authorized/blocked. No proposal/approval queue.
 - Every create/update/archive is **audited** (actor, ts, old, new) regardless of
