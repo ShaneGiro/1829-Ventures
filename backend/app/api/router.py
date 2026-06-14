@@ -9,9 +9,32 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.routes import auth, health, users
+from app.api.routes import (
+    auth,
+    companies,
+    documents,
+    health,
+    interactions,
+    investments,
+    people,
+    portfolio_metrics,
+    users,
+)
 
 api_router = APIRouter()
 api_router.include_router(health.router)
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
+api_router.include_router(companies.router, prefix="/companies", tags=["companies"])
+api_router.include_router(people.router, prefix="/people", tags=["people"])
+api_router.include_router(people.contacts_router, prefix="/company-contacts", tags=["people"])
+api_router.include_router(people.affiliations_router, prefix="/affiliations", tags=["people"])
+api_router.include_router(interactions.router, prefix="/interactions", tags=["interactions"])
+api_router.include_router(investments.funds_router, prefix="/funds", tags=["funds"])
+api_router.include_router(investments.router, prefix="/investments", tags=["investments"])
+api_router.include_router(
+    portfolio_metrics.router,
+    prefix="/portfolio-metrics",
+    tags=["portfolio_metrics"],
+)
+api_router.include_router(documents.router, prefix="/documents", tags=["documents"])

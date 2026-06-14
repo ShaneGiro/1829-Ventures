@@ -25,6 +25,17 @@ class DocumentCreate(DocumentBase):
     pass
 
 
+class DocumentUpdate(BaseModel):
+    filename: str | None = None
+    content_type: str | None = None
+    size_bytes: int | None = None
+    source: DocumentSource | None = None
+    external_link: str | None = None
+    company_id: uuid.UUID | None = None
+    deal_id: uuid.UUID | None = None
+    person_id: uuid.UUID | None = None
+
+
 class DocumentRead(SoftDeleteRead, DocumentBase):
     storage_key: str | None = None
     uploaded_by: uuid.UUID | None = None

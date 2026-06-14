@@ -21,6 +21,10 @@ class AffiliationCreate(AffiliationBase):
     person_id: uuid.UUID
 
 
+class AffiliationUpdate(AffiliationBase):
+    pass
+
+
 class AffiliationRead(TimestampedRead, AffiliationBase):
     person_id: uuid.UUID
 
