@@ -16,8 +16,8 @@ celery_app = Celery(
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
     include=[
+        "app.workers.jobs.dealroom_import_jobs",
         # Later agents append their job modules here, e.g.:
-        # "app.workers.jobs.dealroom_import_jobs",
         # "app.workers.jobs.gmail_jobs",
         # "app.workers.jobs.agent_jobs",
         # "app.workers.jobs.embedding_jobs",
