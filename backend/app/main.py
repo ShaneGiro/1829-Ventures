@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.middleware import RateLimitMiddleware, RequestIDMiddleware
 from app.api.router import api_router
@@ -39,6 +40,12 @@ def create_app() -> FastAPI:
     # Middleware (added last runs first on the way in).
     app.add_middleware(RateLimitMiddleware)
     app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.jwt_secret,
+        same_site="lax",
+        https_only=not settings.debug,
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins_list,
