@@ -12,6 +12,8 @@ from fastapi import APIRouter
 from app.api.routes import (
     auth,
     companies,
+    deal_statuses,
+    deals,
     documents,
     health,
     interactions,
@@ -30,6 +32,8 @@ api_router.include_router(people.router, prefix="/people", tags=["people"])
 api_router.include_router(people.contacts_router, prefix="/company-contacts", tags=["people"])
 api_router.include_router(people.affiliations_router, prefix="/affiliations", tags=["people"])
 api_router.include_router(interactions.router, prefix="/interactions", tags=["interactions"])
+api_router.include_router(deals.router, prefix="/deals", tags=["deals"])
+api_router.include_router(deal_statuses.router, prefix="/deal-statuses", tags=["deal-statuses"])
 api_router.include_router(investments.funds_router, prefix="/funds", tags=["funds"])
 api_router.include_router(investments.router, prefix="/investments", tags=["investments"])
 api_router.include_router(
