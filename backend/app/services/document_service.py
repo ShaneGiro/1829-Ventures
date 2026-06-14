@@ -11,6 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.audit import actor_from_user
 from app.core.constants import DocumentSource
 from app.core.exceptions import NotFoundError, ValidationError
+from app.integrations.minio_storage import get_document_storage
+from app.integrations.storage import DocumentStorage
 from app.models.document import Document
 from app.models.user import User
 from app.repositories import documents as document_repo
@@ -90,20 +92,29 @@ async def archive_document(session: AsyncSession, document_id: uuid.UUID, actor:
 
 
 async def create_presigned_upload(
-    session: AsyncSession, payload: PresignedUploadRequest, actor: User
+    session: AsyncSession,
+    payload: PresignedUploadRequest,
+    actor: User,
+    storage: DocumentStorage | None = None,
 ) -> tuple[Document, str]:
     document = Document(
         filename=payload.filename,
         content_type=payload.content_type,
+        size_bytes=payload.size_bytes,
         source=DocumentSource.UPLOAD,
         company_id=payload.company_id,
         deal_id=payload.deal_id,
+        person_id=payload.person_id,
         uploaded_by=actor.id,
     )
     await document_repo.create_document(session, document)
     document.storage_key = _storage_key(document.id, document.filename)
+    storage_client = storage or get_document_storage()
+    upload = storage_client.create_presigned_upload(
+        storage_key=document.storage_key,
+        content_type=document.content_type,
+    )
     await audit_service.record_create(session, actor=actor_from_user(actor), entity=document)
     await session.commit()
     await session.refresh(document)
-    upload_url = f"s3://local-dev/{document.storage_key}"
-    return document, upload_url
+    return document, upload.upload_url

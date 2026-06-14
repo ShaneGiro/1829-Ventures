@@ -11,6 +11,7 @@ import pytest
 
 from app.core.audit import AuditActor
 from app.core.constants import ActorType, RelationshipStatus
+from app.integrations.storage import PresignedUpload
 from app.models.audit_log import AuditLog
 from app.models.company import Company
 from app.models.company_contact import CompanyContact
@@ -184,14 +185,30 @@ async def test_presigned_upload_creates_document_metadata_and_storage_key(
     audit_create = AsyncMock()
     monkeypatch.setattr(document_service.audit_service, "record_create", audit_create)
 
+    class FakeStorage:
+        def create_presigned_upload(
+            self,
+            *,
+            storage_key: str,
+            content_type: str | None,
+            expires_in: int = 3600,
+        ) -> PresignedUpload:
+            assert content_type == "application/pdf"
+            assert expires_in == 3600
+            return PresignedUpload(
+                upload_url=f"https://minio.test/{storage_key}",
+                storage_key=storage_key,
+            )
+
     document, upload_url = await document_service.create_presigned_upload(
         session,
         PresignedUploadRequest(filename="pitch/deck.pdf", content_type="application/pdf"),
         user,
+        storage=FakeStorage(),
     )
 
     assert document.storage_key == f"documents/{document.id}/pitch_deck.pdf"
-    assert upload_url == f"s3://local-dev/{document.storage_key}"
+    assert upload_url == f"https://minio.test/{document.storage_key}"
     audit_create.assert_awaited_once()
     assert session.committed is True
 

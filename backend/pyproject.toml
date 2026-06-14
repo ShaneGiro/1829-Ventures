@@ -56,6 +56,8 @@ module = [
     "pgvector.*",
     "sentence_transformers.*",
     "authlib.*",
+    "boto3.*",
+    "boto3",
     "sendgrid.*",
     "factory.*",
     "celery.*",

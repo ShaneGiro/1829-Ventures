@@ -44,8 +44,10 @@ class DocumentRead(SoftDeleteRead, DocumentBase):
 class PresignedUploadRequest(BaseModel):
     filename: str
     content_type: str | None = None
+    size_bytes: int | None = None
     company_id: uuid.UUID | None = None
     deal_id: uuid.UUID | None = None
+    person_id: uuid.UUID | None = None
 
 
 class PresignedUploadResponse(BaseModel):

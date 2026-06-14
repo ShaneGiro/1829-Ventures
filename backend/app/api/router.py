@@ -21,6 +21,7 @@ from app.api.routes import (
     investments,
     people,
     portfolio_metrics,
+    tasks,
     users,
 )
 
@@ -44,3 +45,4 @@ api_router.include_router(
     tags=["portfolio_metrics"],
 )
 api_router.include_router(documents.router, prefix="/documents", tags=["documents"])
+api_router.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
