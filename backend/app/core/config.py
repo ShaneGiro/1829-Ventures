@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import Field, PostgresDsn, computed_field
+from pydantic import Field, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     # ─── Database ─────────────────────────────────────────────────────────────
     # A single connection string drives both engines; the database module swaps
     # the driver prefix (asyncpg for the API, psycopg2 for workers + Alembic).
-    database_url: PostgresDsn = Field(
+    database_url: str = Field(
         default="postgresql://crm:crm@localhost:5432/crm",  # noqa: S106 - dev default
     )
     db_echo: bool = Field(default=False)

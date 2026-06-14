@@ -103,3 +103,133 @@ class Role(StrEnum):
     ANALYST = "analyst"
     MEMBER = "member"  # default for human users in v1
     AGENT = "agent"  # Ritchie's scoped API-key identity
+
+
+# ─── Company completeness (v1 tracked fields) ─────────────────────────────────
+# Deal diligence/rubric fields intentionally excluded — they belong to deals.
+COMPANY_COMPLETENESS_FIELDS: tuple[str, ...] = (
+    "website",
+    "description",
+    "sector",
+    "location",
+    "primary_contact",
+    "relationship_status",
+    "tags",
+)
+
+
+# ─── Interactions ─────────────────────────────────────────────────────────────
+class InteractionType(StrEnum):
+    EMAIL = "email"
+    CALL = "call"
+    MEETING = "meeting"
+    NOTE = "note"
+    INTRODUCTION = "introduction"
+    DILIGENCE = "diligence"
+    TOUCHPOINT = "touchpoint"
+
+
+# ─── Tasks ────────────────────────────────────────────────────────────────────
+class TaskStatus(StrEnum):
+    OPEN = "open"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
+class TaskPriority(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    URGENT = "urgent"
+
+
+# ─── Tags ─────────────────────────────────────────────────────────────────────
+class TagKind(StrEnum):
+    USER = "user"  # created during normal work
+    SYSTEM = "system"  # protected, controlled for analytics
+    PASS_REASON = "pass_reason"  # required when passing a company/deal
+
+
+# ─── Documents ────────────────────────────────────────────────────────────────
+class DocumentSource(StrEnum):
+    UPLOAD = "upload"
+    EMAIL = "email"
+    DEALROOM = "dealroom"
+    EXTERNAL_LINK = "external_link"
+
+
+# ─── Notifications ────────────────────────────────────────────────────────────
+class NotificationChannel(StrEnum):
+    EMAIL = "email"
+    SLACK = "slack"  # adapter slot reserved for v1
+
+
+# ─── Imports ──────────────────────────────────────────────────────────────────
+class ImportStatus(StrEnum):
+    UPLOADED = "uploaded"
+    PREVIEWING = "previewing"
+    PARTIALLY_COMMITTED = "partially_committed"
+    COMMITTED = "committed"
+    FAILED = "failed"
+
+
+class ImportRowStatus(StrEnum):
+    PENDING = "pending"
+    MATCHED = "matched"
+    CREATED = "created"
+    CONFLICT = "conflict"
+    SKIPPED = "skipped"
+    COMMITTED = "committed"
+
+
+# ─── Funds ────────────────────────────────────────────────────────────────────
+class FundStatus(StrEnum):
+    ACTIVE = "active"
+    CLOSED = "closed"
+
+
+# ─── Diligence ────────────────────────────────────────────────────────────────
+class DiligenceItemStatus(StrEnum):
+    NOT_STARTED = "not_started"
+    IN_PROGRESS = "in_progress"
+    COMPLETE = "complete"
+    NOT_APPLICABLE = "not_applicable"
+
+
+# ─── Ritchie agent governance ─────────────────────────────────────────────────
+class PolicyState(StrEnum):
+    AUTHORIZED = "authorized"  # Ritchie executes directly, fully audited
+    BLOCKED = "blocked"  # rejected at the policy gate, logged as policy_blocked
+
+
+class AgentEventStatus(StrEnum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    PROCESSED = "processed"
+    POLICY_BLOCKED = "policy_blocked"
+    AGENT_UNAVAILABLE = "agent_unavailable"
+    FAILED = "failed"
+
+
+class AiWriteStatus(StrEnum):
+    PENDING = "pending"  # intent recorded before the canonical write
+    COMMITTED = "committed"
+    FAILED = "failed"
+
+
+# Tools whose writes are blocked by default until a human authorizes them.
+DEFAULT_BLOCKED_TOOLS: tuple[str, ...] = (
+    "update_investment_amount",
+    "update_valuation",
+    "update_ownership",
+    "update_deal_stage",
+    "update_legal_terms",
+    "record_investment_recommendation",
+    "update_portfolio_mark",
+    "update_rubric_score",
+)
+
+
+# Embedding dimensionality for pgvector columns (all-MiniLM-L6-v2 = 384).
+EMBEDDING_DIM = 384

@@ -16,6 +16,7 @@ import redis.asyncio as aioredis
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+from starlette.types import ASGIApp
 
 from app.core.config import settings
 from app.core.logging import request_id_ctx
@@ -55,7 +56,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     if Redis is unavailable — rate limiting must never take down the API.
     """
 
-    def __init__(self, app: Callable[..., Awaitable[Response]]) -> None:
+    def __init__(self, app: ASGIApp) -> None:
         super().__init__(app)
         self._redis: aioredis.Redis | None = None
 

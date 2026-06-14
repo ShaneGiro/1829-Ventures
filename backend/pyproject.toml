@@ -27,7 +27,9 @@ select = [
     "TID",  # flake8-tidy-imports
 ]
 ignore = [
-    "B008",  # FastAPI uses function calls (Depends()) in argument defaults
+    "B008",   # FastAPI uses function calls (Depends()) in argument defaults
+    "UP046",  # PEP 695 generic syntax — keep Generic[T] for Pydantic compatibility
+    "UP047",  # PEP 695 generic functions — same reason
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -45,6 +47,8 @@ strict = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 disallow_untyped_defs = true
+# Celery and other libs ship untyped decorators; don't fail on those.
+disallow_untyped_decorators = false
 # Third-party libraries without bundled type stubs.
 [[tool.mypy.overrides]]
 module = [
@@ -54,6 +58,7 @@ module = [
     "authlib.*",
     "sendgrid.*",
     "factory.*",
+    "celery.*",
 ]
 ignore_missing_imports = true
 

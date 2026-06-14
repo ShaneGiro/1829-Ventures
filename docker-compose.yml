@@ -9,8 +9,11 @@
 
 services:
   postgres:
-    # PostGIS image bundles the postgis extension; pgvector is installed on top.
-    image: postgis/postgis:16-3.4
+    # Custom image: PostGIS base + pgvector (the postgis image lacks pgvector).
+    build:
+      context: ./docker/postgres
+      dockerfile: Dockerfile
+    image: ventures-crm-postgres:16
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-crm}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-crm}
