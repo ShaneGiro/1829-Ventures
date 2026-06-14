@@ -75,6 +75,11 @@ class Settings(BaseSettings):
     digest_send_hour: int = Field(default=9)  # 9 AM America/New_York
     timezone: str = Field(default="America/New_York")
 
+    # ─── Search / embeddings ─────────────────────────────────────────────────
+    embedding_model_name: str = Field(default="sentence-transformers/all-MiniLM-L6-v2")
+    embedding_enabled: bool = Field(default=True)
+    embedding_batch_size: int = Field(default=32)
+
     # ─── CORS ─────────────────────────────────────────────────────────────────
     cors_origins: str = Field(default="http://localhost:5173")
 

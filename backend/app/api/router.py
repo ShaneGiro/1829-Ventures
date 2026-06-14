@@ -10,6 +10,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.api.routes import (
+    analytics,
     auth,
     companies,
     deal_statuses,
@@ -44,3 +45,4 @@ api_router.include_router(
     tags=["portfolio_metrics"],
 )
 api_router.include_router(documents.router, prefix="/documents", tags=["documents"])
+api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
