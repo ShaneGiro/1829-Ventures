@@ -81,6 +81,4 @@ def test_domain_and_sector_mapping() -> None:
     assert map_dealroom_sector(["security", "robotics"], [])[0] == (
         "Intelligent Systems, AI & Cyber"
     )
-    assert map_dealroom_sector(["advanced materials"], [])[1] == [
-        "unmapped_dealroom_taxonomy"
-    ]
+    assert map_dealroom_sector(["advanced materials"], [])[1] == ["unmapped_dealroom_taxonomy"]
