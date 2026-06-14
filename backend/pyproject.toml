@@ -1,0 +1,74 @@
+[project]
+name = "ventures-crm-backend"
+version = "0.1.0"
+description = "1829 Ventures CRM backend (FastAPI + Postgres/PostGIS/pgvector)"
+requires-python = ">=3.12"
+readme = "../README.md"
+
+# Runtime dependencies are pinned in requirements.txt (see the CPU-only torch
+# note at the top of that file). pyproject.toml owns tooling configuration only.
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["app", "tests", "scripts"]
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+    "TID",  # flake8-tidy-imports
+]
+ignore = [
+    "B008",  # FastAPI uses function calls (Depends()) in argument defaults
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+mypy_path = "."
+packages = ["app"]
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_untyped_defs = true
+# Third-party libraries without bundled type stubs.
+[[tool.mypy.overrides]]
+module = [
+    "geoalchemy2.*",
+    "pgvector.*",
+    "sentence_transformers.*",
+    "authlib.*",
+    "sendgrid.*",
+    "factory.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-ra --strict-markers --cov=app --cov-report=term-missing"
+markers = [
+    "integration: marks tests that require a live database",
+]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/__init__.py", "*/alembic/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false

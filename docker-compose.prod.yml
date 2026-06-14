@@ -1,0 +1,8 @@
+# Production deployment stub (v2). Wired during the RIT/server deployment phase:
+# nginx SSL termination, external object storage (Cloudflare R2), no source mounts,
+# no --reload, and pinned image tags. Deferred for v1 (local Docker Compose only).
+#
+# Usage (future):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services: {}

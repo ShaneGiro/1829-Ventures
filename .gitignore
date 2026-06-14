@@ -1,3 +1,28 @@
+# Secrets & local env
 .env
-.DS_Store
 .codex/config.toml
+
+# OS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Node / frontend (added by Agent 20)
+node_modules/
+dist/
+*.local
+
+# Backups
+/backups/
+*.sql.gz
