@@ -51,6 +51,23 @@ class MinioDocumentStorage:
         )
         return PresignedUpload(upload_url=str(response["url"]), storage_key=storage_key)
 
+    def put_object(
+        self,
+        *,
+        storage_key: str,
+        body: bytes,
+        content_type: str | None,
+    ) -> None:
+        extra_args: dict[str, str] = {}
+        if content_type:
+            extra_args["ContentType"] = content_type
+        self.client.put_object(
+            Bucket=self.bucket_name,
+            Key=storage_key,
+            Body=body,
+            **extra_args,
+        )
+
 
 def get_document_storage() -> MinioDocumentStorage:
     return MinioDocumentStorage(

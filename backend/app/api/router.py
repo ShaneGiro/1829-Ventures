@@ -16,6 +16,7 @@ from app.api.routes import (
     deal_statuses,
     deals,
     documents,
+    email,
     health,
     imports,
     interactions,
@@ -48,3 +49,4 @@ api_router.include_router(
 api_router.include_router(documents.router, prefix="/documents", tags=["documents"])
 api_router.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
+api_router.include_router(email.router, prefix="/email", tags=["email"])

@@ -21,3 +21,12 @@ class DocumentStorage(Protocol):
         expires_in: int = 3600,
     ) -> PresignedUpload:
         """Return a browser/client-upload URL for a document object."""
+
+    def put_object(
+        self,
+        *,
+        storage_key: str,
+        body: bytes,
+        content_type: str | None,
+    ) -> None:
+        """Store an object body directly from a trusted backend worker/request."""
