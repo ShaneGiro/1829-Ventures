@@ -75,4 +75,6 @@ factory-boy>=3.3.1               # model factories for test fixtures
 # ─── Linting & Type Checking ──────────────────────────────────────────────────
 ruff>=0.8.0                      # linter + formatter (replaces flake8, isort, black)
 mypy>=1.13.0                     # static type checker
-types-redis>=4.6.0               # mypy stubs for redis
+# Note: redis ships its own inline types (py.typed) since 4.6, so no types-redis
+# stub package is needed — installing it pulls stale stubs that conflict with the
+# modern client (e.g. missing `aclose`, stricter generics) and breaks mypy.
