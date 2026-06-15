@@ -29,9 +29,7 @@ async def list_companies(
     require_permission(current_user, PermissionAction.READ, PermissionResource.CRM)
     if q and q.strip():
         # Hybrid: exact/substring matches first, then semantically similar (vector).
-        companies, total = await company_service.search_companies(
-            db, q, limit=limit, offset=offset
-        )
+        companies, total = await company_service.search_companies(db, q, limit=limit, offset=offset)
     else:
         companies = await company_repo.list_companies(
             db, limit=limit, offset=offset, include_archived=include_archived

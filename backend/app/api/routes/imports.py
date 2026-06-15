@@ -33,9 +33,7 @@ async def download_dealroom_template(_current_user: CurrentUser) -> Response:
 
 
 @router.delete("/uncommitted")
-async def discard_uncommitted_imports(
-    db: DbSession, _current_user: CurrentUser
-) -> dict[str, int]:
+async def discard_uncommitted_imports(db: DbSession, _current_user: CurrentUser) -> dict[str, int]:
     """Erase staged import batches that were never committed (called on page load)."""
     deleted = await dealroom_import_service.discard_uncommitted_imports(db)
     return {"deleted": deleted}

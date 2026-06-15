@@ -68,9 +68,7 @@ async def search_company_ids(
     return list(await session.scalars(stmt))
 
 
-async def get_companies_by_ids(
-    session: AsyncSession, ids: list[uuid.UUID]
-) -> list[Company]:
+async def get_companies_by_ids(session: AsyncSession, ids: list[uuid.UUID]) -> list[Company]:
     """Fetch companies by id, preserving the order of ``ids``."""
     if not ids:
         return []

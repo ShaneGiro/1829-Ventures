@@ -188,9 +188,7 @@ async def semantic_company_matches(
         await session.execute(stmt, {"embedding": _pgvector_literal(embedding), "limit": limit})
     ).mappings()
     return [
-        (row["entity_id"], score)
-        for row in rows
-        if (score := float(row["rank"] or 0)) >= min_score
+        (row["entity_id"], score) for row in rows if (score := float(row["rank"] or 0)) >= min_score
     ]
 
 
