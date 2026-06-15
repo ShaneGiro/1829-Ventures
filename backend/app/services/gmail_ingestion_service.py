@@ -132,13 +132,32 @@ async def ingest_forwarded_email(
     }
 
     if match.company_id is None and match.person_id is None:
+        # Deterministic matching missed; try the AI-assisted fuzzy fallback. The
+        # suggestion is recorded for manual linking but never auto-attached, so a
+        # human stays in the loop for the company relationship.
+        suggestion = await interaction_repo.suggest_company_match(session, parsed.original_sender)
+        review_reason = "No deterministic company or person match found"
+        if suggestion is not None:
+            interaction.provenance = {
+                **interaction.provenance,
+                "fuzzy_suggestion": {
+                    "company_id": str(suggestion.company_id),
+                    "company_name": suggestion.company_name,
+                    "confidence": suggestion.confidence,
+                    "reason": suggestion.reason,
+                },
+            }
+            review_reason = (
+                f"No deterministic match; suggested '{suggestion.company_name}' "
+                f"(confidence {suggestion.confidence}) for manual review"
+            )
         await session.commit()
         await session.refresh(interaction)
         return GmailIngestResult(
             status=REVIEW_UNMATCHED,
             interaction=InteractionRead.model_validate(interaction),
             document_ids=document_ids,
-            review_reason="No deterministic company or person match found",
+            review_reason=review_reason,
         )
 
     if match.company_id is not None:

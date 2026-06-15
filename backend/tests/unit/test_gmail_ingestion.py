@@ -9,11 +9,17 @@ from typing import Any
 
 import pytest
 
-from app.core.constants import Role
+from app.core.constants import RelationshipStatus, Role
 from app.core.exceptions import ValidationError
+from app.models.company import Company
 from app.models.interaction import Interaction
 from app.models.user import User
-from app.repositories.interactions import EmailMatch
+from app.repositories import interactions as interaction_repo
+from app.repositories.interactions import (
+    EmailMatch,
+    score_company_candidate,
+    suggest_company_match,
+)
 from app.schemas.email import ForwardedEmailAttachment, GmailForwardedEmailIngest
 from app.services import gmail_ingestion_service as service
 
@@ -196,3 +202,213 @@ async def test_matched_forward_creates_interaction_and_stores_small_attachment(
     assert result.interaction.person_id == person_id
     assert result.document_ids
     assert storage.objects[0][1] == b"deck"
+    # Provenance records both the forwarding team member and the original sender.
+    assert result.interaction.forwarded_by == "analyst@g.rit.edu"
+    assert result.interaction.original_sender == "jane@startup.com"
+    assert result.interaction.provenance["forwarded_by"] == "analyst@g.rit.edu"
+
+
+def _patch_common(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def create_interaction(_session: FakeSession, interaction: Interaction) -> Interaction:
+        _session.add(interaction)
+        await _session.flush()
+        return interaction
+
+    async def record_create(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr(service.interaction_repo, "create_interaction", create_interaction)
+    monkeypatch.setattr(service.audit_service, "record_create", record_create)
+    monkeypatch.setattr(service.embed_interactions, "delay", lambda *_args: None)
+
+
+@pytest.mark.asyncio
+async def test_unmatched_forward_routes_to_review(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = FakeSession()
+    _patch_common(monkeypatch)
+
+    async def find_email_match(_session: FakeSession, _sender: str) -> EmailMatch:
+        return EmailMatch()
+
+    async def no_suggestion(_session: FakeSession, _sender: str) -> None:
+        return None
+
+    monkeypatch.setattr(service.interaction_repo, "find_email_match", find_email_match)
+    monkeypatch.setattr(service.interaction_repo, "suggest_company_match", no_suggestion)
+
+    result = await service.ingest_forwarded_email(
+        session,  # type: ignore[arg-type]
+        GmailForwardedEmailIngest(
+            source_email_id="msg-3",
+            forwarded_by="analyst@g.rit.edu",
+            raw_message=gmail_forward(),
+        ),
+        actor=make_actor(),
+        storage=FakeStorage(),  # type: ignore[arg-type]
+    )
+
+    assert result.status == service.REVIEW_UNMATCHED
+    assert result.interaction.company_id is None
+    assert result.interaction.person_id is None
+    assert "fuzzy_suggestion" not in result.interaction.provenance
+
+
+@pytest.mark.asyncio
+async def test_unmatched_forward_includes_fuzzy_suggestion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = FakeSession()
+    _patch_common(monkeypatch)
+    suggested_company_id = uuid.uuid4()
+
+    async def find_email_match(_session: FakeSession, _sender: str) -> EmailMatch:
+        return EmailMatch()
+
+    async def suggest(
+        _session: FakeSession, sender: str
+    ) -> interaction_repo.FuzzyCompanySuggestion:
+        assert sender == "jane@startup.com"
+        return interaction_repo.FuzzyCompanySuggestion(
+            company_id=suggested_company_id,
+            company_name="Startup Labs",
+            confidence=0.82,
+            reason="domain match",
+        )
+
+    monkeypatch.setattr(service.interaction_repo, "find_email_match", find_email_match)
+    monkeypatch.setattr(service.interaction_repo, "suggest_company_match", suggest)
+
+    result = await service.ingest_forwarded_email(
+        session,  # type: ignore[arg-type]
+        GmailForwardedEmailIngest(
+            source_email_id="msg-4",
+            forwarded_by="analyst@g.rit.edu",
+            raw_message=gmail_forward(),
+        ),
+        actor=make_actor(),
+        storage=FakeStorage(),  # type: ignore[arg-type]
+    )
+
+    assert result.status == service.REVIEW_UNMATCHED
+    # Suggestion is surfaced but the company is NOT auto-attached.
+    assert result.interaction.company_id is None
+    suggestion = result.interaction.provenance["fuzzy_suggestion"]
+    assert suggestion["company_id"] == str(suggested_company_id)
+    assert suggestion["company_name"] == "Startup Labs"
+    assert "Startup Labs" in (result.review_reason or "")
+
+
+@pytest.mark.asyncio
+async def test_oversized_attachment_is_not_stored(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = FakeSession()
+    storage = FakeStorage()
+    _patch_common(monkeypatch)
+    company_id = uuid.uuid4()
+
+    async def find_email_match(_session: FakeSession, _sender: str) -> EmailMatch:
+        return EmailMatch(company_id=company_id)
+
+    async def no_company(*_args: object) -> None:
+        return None
+
+    monkeypatch.setattr(service.interaction_repo, "find_email_match", find_email_match)
+    monkeypatch.setattr(service.interaction_repo, "get_company_for_email_ingestion", no_company)
+
+    result = await service.ingest_forwarded_email(
+        session,  # type: ignore[arg-type]
+        GmailForwardedEmailIngest(
+            source_email_id="msg-5",
+            forwarded_by="analyst@g.rit.edu",
+            raw_message=gmail_forward(),
+            attachments=[
+                ForwardedEmailAttachment(
+                    filename="huge.zip",
+                    content_type="application/zip",
+                    size_bytes=service.ATTACHMENT_MAX_BYTES + 1,
+                    content_base64=base64.b64encode(b"x").decode("ascii"),
+                )
+            ],
+        ),
+        actor=make_actor(),
+        storage=storage,  # type: ignore[arg-type]
+    )
+
+    assert result.status == service.REVIEW_MATCHED
+    # Nothing was uploaded; the document metadata records the skip reason.
+    assert storage.objects == []
+    documents = [obj for obj in session.added if type(obj).__name__ == "Document"]
+    assert len(documents) == 1
+    assert documents[0].storage_key is None
+    assert documents[0].extra_metadata["storage_status"] == "skipped_size_limit"
+
+
+@pytest.mark.asyncio
+async def test_founder_reply_moves_contacted_company_to_review_needed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = FakeSession()
+    _patch_common(monkeypatch)
+    company_id = uuid.uuid4()
+    calls: list[uuid.UUID] = []
+
+    async def find_email_match(_session: FakeSession, _sender: str) -> EmailMatch:
+        return EmailMatch(company_id=company_id)
+
+    async def get_company(_session: FakeSession, cid: uuid.UUID) -> Company:
+        return Company(id=cid, name="Startup", relationship_status=RelationshipStatus.CONTACTED)
+
+    async def mark_review_needed(
+        _session: FakeSession, *, company_id: uuid.UUID, owner_id: object
+    ) -> None:
+        calls.append(company_id)
+
+    monkeypatch.setattr(service.interaction_repo, "find_email_match", find_email_match)
+    monkeypatch.setattr(service.interaction_repo, "get_company_for_email_ingestion", get_company)
+    monkeypatch.setattr(service, "mark_review_needed", mark_review_needed)
+
+    result = await service.ingest_forwarded_email(
+        session,  # type: ignore[arg-type]
+        GmailForwardedEmailIngest(
+            source_email_id="msg-6",
+            forwarded_by="analyst@g.rit.edu",
+            raw_message=gmail_forward(),
+        ),
+        actor=make_actor(),
+        storage=FakeStorage(),  # type: ignore[arg-type]
+    )
+
+    assert result.status == service.REVIEW_MATCHED
+    assert calls == [company_id]
+
+
+def test_score_company_candidate_threshold() -> None:
+    # Domain root close to the company name scores high; unrelated scores low.
+    assert score_company_candidate("startup", name="Startup Labs", domain="startup.com") >= 0.6
+    assert score_company_candidate("startup", name="Acme Robotics", domain="acme.io") < 0.6
+
+
+@pytest.mark.asyncio
+async def test_suggest_company_match_ranks_best_candidate() -> None:
+    matching_id = uuid.uuid4()
+
+    class ScalarSession:
+        async def scalars(self, _stmt: object) -> list[Company]:
+            return [
+                Company(id=uuid.uuid4(), name="Acme Robotics", domain="acme.io"),
+                Company(id=matching_id, name="Startup Labs", domain="startup.com"),
+            ]
+
+    suggestion = await suggest_company_match(ScalarSession(), "jane@startup.com")  # type: ignore[arg-type]
+    assert suggestion is not None
+    assert suggestion.company_id == matching_id
+    assert suggestion.confidence >= 0.6
+
+
+@pytest.mark.asyncio
+async def test_suggest_company_match_short_root_returns_none() -> None:
+    class ScalarSession:
+        async def scalars(self, _stmt: object) -> list[Company]:  # pragma: no cover - not reached
+            return []
+
+    # Single-char domain root is below the minimum length; no query is run.
+    assert await suggest_company_match(ScalarSession(), "x@a.com") is None

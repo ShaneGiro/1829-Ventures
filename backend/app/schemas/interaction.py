@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.constants import InteractionType
 from app.schemas.common import SoftDeleteRead
@@ -40,3 +41,5 @@ class InteractionRead(SoftDeleteRead, InteractionBase):
     original_sender: str | None = None
     original_recipient: str | None = None
     forwarded_by: str | None = None
+    # Provenance (forwarding info, review status, fuzzy suggestion) for reviewers.
+    provenance: dict[str, Any] = Field(default_factory=dict)

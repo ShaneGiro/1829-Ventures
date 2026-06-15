@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import difflib
 import uuid
 from dataclasses import dataclass
 from typing import cast
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.company import Company
@@ -15,11 +16,29 @@ from app.models.interaction import Interaction
 from app.models.person import Person
 from app.repositories import base
 
+# Minimum lexical similarity for a fuzzy company suggestion to be surfaced.
+FUZZY_MATCH_THRESHOLD = 0.6
+FUZZY_CANDIDATE_LIMIT = 25
+
 
 @dataclass(frozen=True)
 class EmailMatch:
     company_id: uuid.UUID | None = None
     person_id: uuid.UUID | None = None
+
+
+@dataclass(frozen=True)
+class FuzzyCompanySuggestion:
+    """A low-confidence company candidate for an otherwise-unmatched email.
+
+    Surfaced in the review queue to assist manual linking; never auto-attached,
+    so human-curated relationships remain the source of truth.
+    """
+
+    company_id: uuid.UUID
+    company_name: str
+    confidence: float
+    reason: str
 
 
 def _normalize_email(value: str | None) -> str | None:
@@ -34,6 +53,34 @@ def _email_domain(email: str | None) -> str | None:
     if normalized is None or "@" not in normalized:
         return None
     return normalized.rsplit("@", 1)[1]
+
+
+def _domain_root(domain: str | None) -> str | None:
+    """Strip the TLD: 'startup.com' -> 'startup', 'sub.acme.io' -> 'acme'."""
+    if not domain:
+        return None
+    parts = domain.split(".")
+    if len(parts) >= 2:
+        return parts[-2]
+    return parts[0] or None
+
+
+def _similarity(a: str, b: str) -> float:
+    return difflib.SequenceMatcher(None, a.lower(), b.lower()).ratio()
+
+
+def score_company_candidate(root: str, *, name: str, domain: str | None) -> float:
+    """Best similarity of the sender domain root against a company's name/domain.
+
+    Pure function (no I/O) so the ranking is unit-testable on its own.
+    """
+    scores = [_similarity(root, name)]
+    # Token-level: catch "startup" vs "Startup Labs Inc".
+    scores.extend(_similarity(root, token) for token in name.split())
+    candidate_domain_root = _domain_root(domain)
+    if candidate_domain_root:
+        scores.append(_similarity(root, candidate_domain_root))
+    return max(scores) if scores else 0.0
 
 
 async def get_interaction(
@@ -126,6 +173,49 @@ async def find_email_match(session: AsyncSession, sender_email: str) -> EmailMat
         )
     )
     return EmailMatch(company_id=company.id if company is not None else None)
+
+
+async def suggest_company_match(
+    session: AsyncSession, sender_email: str
+) -> FuzzyCompanySuggestion | None:
+    """AI-assisted fuzzy fallback for emails the deterministic matcher misses.
+
+    Lexical (difflib) only — no synchronous LLM/embedding calls, so the request
+    path stays fast. Returns at most one candidate above FUZZY_MATCH_THRESHOLD.
+    Callers must treat this as a suggestion for manual linking, not a match.
+    """
+    domain = _email_domain(sender_email)
+    root = _domain_root(domain)
+    if not root or len(root) < 2:
+        return None
+
+    # Bound the candidate set with a cheap SQL prefilter before scoring in Python.
+    pattern = f"%{root}%"
+    candidates = list(
+        await session.scalars(
+            select(Company)
+            .where(
+                Company.archived_at.is_(None),
+                or_(
+                    func.lower(Company.name).ilike(pattern),
+                    func.lower(Company.domain).ilike(pattern),
+                ),
+            )
+            .limit(FUZZY_CANDIDATE_LIMIT)
+        )
+    )
+
+    best: FuzzyCompanySuggestion | None = None
+    for company in candidates:
+        score = score_company_candidate(root, name=company.name, domain=company.domain)
+        if score >= FUZZY_MATCH_THRESHOLD and (best is None or score > best.confidence):
+            best = FuzzyCompanySuggestion(
+                company_id=company.id,
+                company_name=company.name,
+                confidence=round(score, 3),
+                reason=f"Sender domain '{domain}' ~ company '{company.name}'",
+            )
+    return best
 
 
 async def get_company_for_email_ingestion(
