@@ -18,10 +18,13 @@ from app.core.constants import (
     SCORE_THRESHOLD_DEEP_DILIGENCE,
     SCORE_THRESHOLD_HOLD,
     DiligenceItemStatus,
+    InvestmentStatus,
 )
 from app.core.exceptions import NotFoundError, ValidationError
+from app.models.deal import Deal
 from app.models.diligence_checklist_item import DiligenceChecklistItem
 from app.models.rubric import Rubric
+from app.repositories import deal_statuses as status_repo
 from app.repositories import deals as deal_repo
 
 DEFAULT_DILIGENCE_CHECKLIST: tuple[str, ...] = (
@@ -175,6 +178,48 @@ async def update_rubric(
     await session.commit()
     await session.refresh(rubric)
     return rubric
+
+
+async def get_company_rubric(session: AsyncSession, company_id: uuid.UUID) -> Rubric:
+    deal = await _get_or_create_company_screening_deal(session, company_id)
+    return await get_rubric(session, deal.id)
+
+
+async def update_company_rubric(
+    session: AsyncSession,
+    *,
+    company_id: uuid.UUID,
+    values: dict[str, Any],
+) -> Rubric:
+    deal = await _get_or_create_company_screening_deal(session, company_id)
+    return await update_rubric(session, deal_id=deal.id, values=values)
+
+
+async def _get_or_create_company_screening_deal(
+    session: AsyncSession, company_id: uuid.UUID
+) -> Deal:
+    company = await deal_repo.get_company(session, company_id)
+    if company is None:
+        raise NotFoundError("Company not found")
+    deal = await deal_repo.get_latest_deal_for_company(session, company_id)
+    if deal is not None:
+        await initialize_diligence(session, deal.id)
+        return deal
+
+    deal = await deal_repo.create_deal(
+        session,
+        company_id=company_id,
+        name="Screening rubric",
+        investment_status=InvestmentStatus.INITIAL_REVIEW,
+    )
+    await status_repo.seed_default_deal_statuses(session)
+    initial_status = await status_repo.get_deal_status_by_name(session, "Initial Review")
+    if initial_status is not None:
+        deal.deal_status_id = initial_status.id
+    await initialize_diligence(session, deal.id)
+    await session.commit()
+    await session.refresh(deal)
+    return deal
 
 
 async def list_checklist_items(

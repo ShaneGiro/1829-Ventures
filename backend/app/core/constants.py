@@ -44,9 +44,9 @@ class InvestmentStatus(StrEnum):
 # Seed pipeline board stages, in display order. Stored in the deal_status table so
 # they can be reordered/extended at runtime without a code change.
 SEED_DEAL_STATUSES: tuple[str, ...] = (
+    "Initial Review",
     "Outreach",
     "Intro Meeting",
-    "Initial Review",
     "Diligence",
     "IC Review",
     "Term Sheet",

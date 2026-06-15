@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  type DealroomColumnKind,
+  type DealroomColumnOption,
   useDealroomColumns,
   useInfiniteCompanies,
   type CompanyFilters,
@@ -29,6 +31,7 @@ const RELATIONSHIP_STATUSES = [
 ];
 
 type TriState = "" | "yes" | "no";
+type DealroomFilterValue = { operator: string; value: string; valueTo: string };
 
 const triToBool = (v: TriState): boolean | undefined =>
   v === "yes" ? true : v === "no" ? false : undefined;
@@ -50,8 +53,7 @@ export function CompanyList() {
   const [hasWebsite, setHasWebsite] = useState<TriState>("");
   const [minCompleteness, setMinCompleteness] = useState("");
   const [maxCompleteness, setMaxCompleteness] = useState("");
-  const [dealroomColumn, setDealroomColumn] = useState("");
-  const [dealroomContains, setDealroomContains] = useState("");
+  const [dealroomFilters, setDealroomFilters] = useState<Record<string, DealroomFilterValue>>({});
 
   useEffect(() => {
     const id = setTimeout(() => setDebouncedQ(q.trim()), 250);
@@ -59,6 +61,13 @@ export function CompanyList() {
   }, [q]);
 
   const dealroomColumns = useDealroomColumns();
+  const activeDealroomFilters = useMemo(
+    () =>
+      Object.entries(dealroomFilters)
+        .map(([column, filter]) => encodeDealroomFilter(column, filter))
+        .filter((filter): filter is string => filter !== undefined),
+    [dealroomFilters],
+  );
 
   const filters = useMemo<CompanyFilters>(() => {
     const stages = splitValues(stage);
@@ -70,7 +79,6 @@ export function CompanyList() {
     const cities = splitValues(city);
     const min = Number(minCompleteness);
     const max = Number(maxCompleteness);
-    const rawContains = dealroomContains.trim();
     return {
       sector: sectors,
       relationship_status: statuses,
@@ -84,8 +92,7 @@ export function CompanyList() {
       has_website: triToBool(hasWebsite),
       min_completeness: boundedPercent(minCompleteness, min),
       max_completeness: boundedPercent(maxCompleteness, max),
-      dealroom_column: dealroomColumn && rawContains ? dealroomColumn : undefined,
-      dealroom_contains: dealroomColumn && rawContains ? rawContains : undefined,
+      dealroom_filter: activeDealroomFilters,
     };
   }, [
     sectors,
@@ -99,8 +106,7 @@ export function CompanyList() {
     hasWebsite,
     minCompleteness,
     maxCompleteness,
-    dealroomColumn,
-    dealroomContains,
+    activeDealroomFilters,
   ]);
 
   const activeCount =
@@ -115,7 +121,7 @@ export function CompanyList() {
     (hasWebsite ? 1 : 0) +
     (minCompleteness !== "" ? 1 : 0) +
     (maxCompleteness !== "" ? 1 : 0) +
-    (dealroomColumn && dealroomContains.trim() ? 1 : 0);
+    activeDealroomFilters.length;
 
   const { data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useInfiniteCompanies(debouncedQ || undefined, filters);
@@ -152,8 +158,7 @@ export function CompanyList() {
     setHasWebsite("");
     setMinCompleteness("");
     setMaxCompleteness("");
-    setDealroomColumn("");
-    setDealroomContains("");
+    setDealroomFilters({});
   };
 
   return (
@@ -253,32 +258,11 @@ export function CompanyList() {
             </label>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <label className="space-y-1 text-xs">
-              <span className="font-medium text-muted-foreground">Dealroom CSV column</span>
-              <select
-                value={dealroomColumn}
-                onChange={(e) => setDealroomColumn(e.target.value)}
-                className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
-              >
-                <option value="">Any column</option>
-                {(dealroomColumns.data ?? []).map((column) => (
-                  <option key={column} value={column}>
-                    {column}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1 text-xs">
-              <span className="font-medium text-muted-foreground">Column contains</span>
-              <Input
-                placeholder="Search selected Dealroom column"
-                value={dealroomContains}
-                onChange={(e) => setDealroomContains(e.target.value)}
-                disabled={!dealroomColumn}
-              />
-            </label>
-          </div>
+          <DealroomFilters
+            columns={dealroomColumns.data ?? []}
+            filters={dealroomFilters}
+            onChange={setDealroomFilters}
+          />
         </div>
       )}
 
@@ -352,6 +336,218 @@ function splitValues(value: string): string[] {
 function boundedPercent(raw: string, parsed: number): number | undefined {
   if (raw === "" || Number.isNaN(parsed)) return undefined;
   return Math.min(100, Math.max(0, parsed));
+}
+
+function encodeDealroomFilter(column: string, filter: DealroomFilterValue): string | undefined {
+  const operator = filter.operator;
+  const value = filter.value.trim();
+  const valueTo = filter.valueTo.trim();
+  if (!operator) return undefined;
+  if (operator === "present" || operator === "blank") {
+    return [column, operator, "", ""].join("\t");
+  }
+  if (operator === "number_between" || operator === "date_between") {
+    return value && valueTo ? [column, operator, value, valueTo].join("\t") : undefined;
+  }
+  return value ? [column, operator, value, ""].join("\t") : undefined;
+}
+
+function defaultDealroomOperator(kind: DealroomColumnKind): string {
+  if (kind === "number") return "number_gte";
+  if (kind === "date") return "date_gte";
+  if (kind === "boolean") return "yes_no";
+  return "contains";
+}
+
+function DealroomFilters({
+  columns,
+  filters,
+  onChange,
+}: {
+  columns: DealroomColumnOption[];
+  filters: Record<string, DealroomFilterValue>;
+  onChange: (filters: Record<string, DealroomFilterValue>) => void;
+}) {
+  const update = (column: string, next: DealroomFilterValue | undefined) => {
+    const updated = { ...filters };
+    if (next) {
+      updated[column] = next;
+    } else {
+      delete updated[column];
+    }
+    onChange(updated);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-semibold text-muted-foreground">Dealroom CSV filters</h3>
+        {Object.keys(filters).length > 0 && (
+          <button
+            type="button"
+            className="text-xs text-muted-foreground hover:underline"
+            onClick={() => onChange({})}
+          >
+            Clear Dealroom
+          </button>
+        )}
+      </div>
+      <div className="max-h-[28rem] overflow-y-auto rounded-md border bg-background">
+        <div className="grid gap-0 divide-y">
+          {columns.map((column) => (
+            <DealroomFilterRow
+              key={column.name}
+              column={column}
+              value={filters[column.name]}
+              onChange={(next) => update(column.name, next)}
+            />
+          ))}
+          {columns.length === 0 && (
+            <div className="px-3 py-4 text-sm text-muted-foreground">
+              Dealroom columns are loading.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DealroomFilterRow({
+  column,
+  value,
+  onChange,
+}: {
+  column: DealroomColumnOption;
+  value: DealroomFilterValue | undefined;
+  onChange: (value: DealroomFilterValue | undefined) => void;
+}) {
+  const current = value ?? {
+    operator: defaultDealroomOperator(column.kind),
+    value: "",
+    valueTo: "",
+  };
+
+  const setOperator = (operator: string) => {
+    if (!operator) {
+      onChange(undefined);
+      return;
+    }
+    onChange({ operator, value: "", valueTo: "" });
+  };
+
+  return (
+    <div className="grid gap-2 px-3 py-2 text-xs md:grid-cols-[minmax(12rem,1fr)_11rem_minmax(12rem,1fr)] md:items-center">
+      <div>
+        <div className="font-medium">{column.name}</div>
+        <div className="text-muted-foreground">{column.kind}</div>
+      </div>
+      <select
+        value={value ? current.operator : ""}
+        onChange={(e) => setOperator(e.target.value)}
+        className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+      >
+        <option value="">Any</option>
+        {operatorOptions(column.kind).map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <DealroomFilterInputs column={column} value={current} active={!!value} onChange={onChange} />
+    </div>
+  );
+}
+
+function DealroomFilterInputs({
+  column,
+  value,
+  active,
+  onChange,
+}: {
+  column: DealroomColumnOption;
+  value: DealroomFilterValue;
+  active: boolean;
+  onChange: (value: DealroomFilterValue | undefined) => void;
+}) {
+  if (!active || value.operator === "present" || value.operator === "blank") {
+    return <div />;
+  }
+  if (column.kind === "boolean") {
+    return (
+      <select
+        value={value.value}
+        onChange={(e) => onChange({ ...value, value: e.target.value })}
+        className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+      >
+        <option value="">Choose</option>
+        <option value="yes">Yes</option>
+        <option value="no">No</option>
+      </select>
+    );
+  }
+
+  const type = column.kind === "date" ? "date" : column.kind === "number" ? "number" : "text";
+  const needsSecondValue =
+    value.operator === "number_between" || value.operator === "date_between";
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      <Input
+        type={type}
+        placeholder={inputPlaceholder(column.kind, value.operator)}
+        value={value.value}
+        onChange={(e) => onChange({ ...value, value: e.target.value })}
+      />
+      {needsSecondValue && (
+        <Input
+          type={type}
+          placeholder="To"
+          value={value.valueTo}
+          onChange={(e) => onChange({ ...value, valueTo: e.target.value })}
+        />
+      )}
+    </div>
+  );
+}
+
+function operatorOptions(kind: DealroomColumnKind): { value: string; label: string }[] {
+  if (kind === "number") {
+    return [
+      { value: "number_gte", label: "At least" },
+      { value: "number_lte", label: "At most" },
+      { value: "number_between", label: "Between" },
+      { value: "present", label: "Has value" },
+      { value: "blank", label: "Blank" },
+    ];
+  }
+  if (kind === "date") {
+    return [
+      { value: "date_gte", label: "On/after" },
+      { value: "date_lte", label: "On/before" },
+      { value: "date_between", label: "Between" },
+      { value: "present", label: "Has value" },
+      { value: "blank", label: "Blank" },
+    ];
+  }
+  if (kind === "boolean") {
+    return [
+      { value: "yes_no", label: "Yes/no" },
+      { value: "present", label: "Has value" },
+      { value: "blank", label: "Blank" },
+    ];
+  }
+  return [
+    { value: "contains", label: "Contains" },
+    { value: "equals", label: "Equals" },
+    { value: "present", label: "Has value" },
+    { value: "blank", label: "Blank" },
+  ];
+}
+
+function inputPlaceholder(kind: DealroomColumnKind, operator: string): string {
+  if (kind === "date") return "From";
+  if (kind === "number") return operator === "number_lte" ? "Maximum" : "Minimum";
+  return "Text";
 }
 
 function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {

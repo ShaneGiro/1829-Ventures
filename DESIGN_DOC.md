@@ -113,10 +113,11 @@ Recent operational fixes:
   Dealroom export surface. `GET /api/companies` supports structured filters for
   sector, relationship status, stage, country/state/city, source system, RIT
   nexus, reviewed/imported status, website presence, completeness range, and
-  created/updated date ranges. It also accepts `dealroom_column` +
-  `dealroom_contains` for case-insensitive substring filtering against any
-  column in the canonical Dealroom CSV registry. `GET
-  /api/companies/dealroom-columns` exposes that registry to the frontend.
+  created/updated date ranges. It also accepts repeated `dealroom_filter`
+  parameters for typed raw-column filtering against every column in the canonical
+  Dealroom CSV registry. `GET /api/companies/dealroom-columns` exposes each
+  column with inferred data type metadata (`text`, `number`, `date`, `boolean`)
+  so the frontend can render the right control.
 
 ### Glossary and Acronyms
 
@@ -197,6 +198,8 @@ MVP capabilities:
 ### Enhancements Planned Beyond Current Implementation
 
 - Deeper Gmail review UI for unmatched/parse-failed forwarded messages.
+- Optional company completeness UI can be reintroduced later as a quality-control
+  feature, but it is not shown on the current company detail page.
 - Full CRM MCP Streamable HTTP server for kernelbot/Ritchie, if separate from
   the current `/agent` API surfaces.
 - More complete Ritchie context retrieval, event fanout, and operational
@@ -319,13 +322,30 @@ Implemented UI capabilities:
 - Company list/detail, people list/detail, pipeline board, task list, import
   manager, portfolio dashboard, and Ritchie policy/activity pages.
 - Company list with debounced hybrid search and infinite scroll over all records.
-- Company list filters for CRM fields plus a Dealroom CSV column dropdown backed
-  by the backend's canonical column registry. The raw-column filter queries
-  committed import-row payloads linked to companies, so it applies to Dealroom
-  imported/matched companies rather than manually created records.
+- Company list filters for CRM fields plus a scrollable Dealroom CSV filter
+  section with every canonical column as an option. Text columns use
+  contains/equals text boxes, numeric columns use min/max/between number inputs,
+  date columns use date inputs, and yes/no columns use dropdown controls. Raw
+  Dealroom column filters query committed import-row payloads linked to
+  companies, so they apply to Dealroom imported/matched companies rather than
+  manually created records.
+- Company detail now combines curated CRM fields with the linked Dealroom import
+  payload. It presents what the company does, industry/tag objects,
+  metrics-over-time line or vertical bar charts on an aligned
+  founding-year-to-current-year x-axis with per-metric y-axis scaling,
+  funding/valuation/employee/revenue/EV/revenue/EBITDA/EV/EBITDA/profit/traffic
+  and other multi-year Dealroom series, funding history with round participants
+  and valuations when available, founders/team, Dealroom signals, web/product
+  traction, tech-stack objects, social links, a company-scoped editable screening
+  rubric, persistent company notes, interactions, tasks, documents, and a
+  searchable table of every populated CSV field.
 - Import manager that accepts CSV/Excel, downloads the column template, and
   discards uncommitted batches on page load.
-- In-page screening rubric editor for the active deal.
+- In-page screening rubric editor based on `planning/1829 Ventures Screening
+  Rubric.pdf`. It preserves the PDF's knockout gates, five weighted categories,
+  1-5 subcategory scoring prompts, and score-band guidance. The company detail
+  page uses company-scoped rubric endpoints that create or reuse the company's
+  screening deal so every company can be scored and the last saved values persist.
 - Loading, error, and empty states through shared UI patterns.
 - API clients under `frontend/src/api/` and shared fetch client under
   `frontend/src/lib/api.ts`.
@@ -418,9 +438,15 @@ Representative API responsibilities:
 - Authentication and current-user lookup.
 - CRUD and archive endpoints for CRM entities.
 - Company list with `q` hybrid search (exact + full-text + semantic), structured
-  filters, Dealroom raw-column filtering, and offset pagination.
+  filters, typed Dealroom raw-column filtering, and offset pagination.
+- Company Dealroom source-data endpoint (`GET
+  /api/companies/{company_id}/dealroom-data`) returning the latest linked import
+  row's raw and normalized payload for company-detail intelligence views.
+- Company-scoped rubric endpoints (`GET/PATCH /api/companies/{company_id}/rubric`)
+  that create or reuse a company's screening deal and persist the 1829 screening
+  rubric values without requiring the user to manually create a deal first.
 - Dealroom column registry endpoint for building frontend filter controls without
-  duplicating CSV column names in TypeScript.
+  duplicating CSV column names or type inference rules in TypeScript.
 - Pipeline actions and diligence/rubric operations.
 - Dealroom CSV/Excel upload/preview/commit, column-template download, and
   discard of uncommitted batches.
@@ -473,7 +499,7 @@ Implemented repositories:
 - `base.py`
 - `users.py`
 - `companies.py`: company listing/search filters, including first-class CRM
-  fields and raw Dealroom column predicates through linked import rows.
+  fields and typed raw Dealroom column predicates through linked import rows.
 - `people.py`
 - `interactions.py`
 - `investments.py`
@@ -805,7 +831,12 @@ Write governance rules:
 - Dealroom raw CSV values are stored on `import_rows.raw_data["dealroom"]`; the
   company record stores normalized first-class fields plus field provenance. Raw
   Dealroom column filters query those linked import rows through
-  `ImportRow.matched_company_id`.
+  `ImportRow.matched_company_id`, with backend validation for column names,
+  operators, numeric values, dates, and yes/no values.
+- Company detail reads raw Dealroom data through a dedicated read endpoint rather
+  than embedding all raw CSV fields in the normal `CompanyRead` schema.
+- Company notes on the detail page persist to `companies.thesis_notes`, which is
+  also included in company search embeddings/full-text search.
 - Dealroom-imported companies start as `imported_unreviewed`.
 - Ritchie policy is binary: authorized or blocked.
 - Blocked Ritchie calls never write.

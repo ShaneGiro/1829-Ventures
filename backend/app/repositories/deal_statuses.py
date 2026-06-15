@@ -61,6 +61,10 @@ async def seed_default_deal_statuses(session: AsyncSession) -> list[DealStatus]:
                 is_terminal=name == "Closed/Invested",
             )
             session.add(status)
+        elif status.is_system and status.sort_order != index:
+            # Keep system stages aligned with SEED_DEAL_STATUSES order even if
+            # they were seeded under a previous ordering.
+            status.sort_order = index
         statuses.append(status)
     await session.flush()
     return statuses

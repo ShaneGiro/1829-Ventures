@@ -7,7 +7,19 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, cast
 
-from sqlalchemy import ColumnElement, Select, exists, func, literal_column, or_, select
+from sqlalchemy import (
+    ColumnElement,
+    Date,
+    Numeric,
+    Select,
+    case,
+    exists,
+    func,
+    literal_column,
+    or_,
+    select,
+)
+from sqlalchemy import cast as sql_cast
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.company import Company
@@ -18,10 +30,12 @@ from app.models.tag import company_tags
 
 @dataclass(frozen=True)
 class DealroomColumnFilter:
-    """Substring filter over a raw Dealroom CSV column stored on import rows."""
+    """Filter over a raw Dealroom CSV column stored on import rows."""
 
     column: str
-    contains: str
+    operator: str
+    value: str | None = None
+    value_to: str | None = None
 
 
 @dataclass(frozen=True)
@@ -93,17 +107,81 @@ def company_filter_conditions(filters: CompanyFilters) -> list[ColumnElement[boo
     if filters.updated_before is not None:
         conditions.append(Company.updated_at <= filters.updated_before)
     for dealroom_filter in filters.dealroom_column_filters:
-        value = dealroom_filter.contains.strip()
-        if not value:
-            continue
         raw_value = ImportRow.raw_data["dealroom"][dealroom_filter.column].astext
+        predicate = _dealroom_column_predicate(raw_value, dealroom_filter)
+        if predicate is None:
+            continue
         conditions.append(
             exists()
             .where(ImportRow.matched_company_id == Company.id)
-            .where(raw_value.ilike(f"%{value}%"))
+            .where(predicate)
         )
     conditions.extend(filters.extra)
     return conditions
+
+
+def _dealroom_column_predicate(
+    raw_value: ColumnElement[str], dealroom_filter: DealroomColumnFilter
+) -> ColumnElement[bool] | None:
+    operator = dealroom_filter.operator
+    value = (dealroom_filter.value or "").strip()
+    value_to = (dealroom_filter.value_to or "").strip()
+
+    if operator == "present":
+        return raw_value.isnot(None) & (func.length(func.trim(raw_value)) > 0)
+    if operator == "blank":
+        return raw_value.is_(None) | (func.length(func.trim(raw_value)) == 0)
+    if operator == "contains":
+        return raw_value.ilike(f"%{value}%") if value else None
+    if operator == "equals":
+        return func.lower(raw_value) == value.lower() if value else None
+    if operator == "yes_no":
+        if value not in {"yes", "no"}:
+            return None
+        return func.lower(raw_value).in_((value, "true" if value == "yes" else "false"))
+    if operator in {"number_gte", "number_lte", "number_between"}:
+        return _numeric_dealroom_predicate(raw_value, operator, value, value_to)
+    if operator in {"date_gte", "date_lte", "date_between"}:
+        return _date_dealroom_predicate(raw_value, operator, value, value_to)
+    return None
+
+
+def _numeric_dealroom_predicate(
+    raw_value: ColumnElement[str], operator: str, value: str, value_to: str
+) -> ColumnElement[bool] | None:
+    if not value:
+        return None
+    cleaned = func.replace(raw_value, ",", "")
+    numeric_pattern = r"^\s*-?[0-9,]+(\.[0-9]+)?\s*$"
+    valid_number = raw_value.op("~")(numeric_pattern)
+    numeric_value = case((valid_number, sql_cast(cleaned, Numeric)), else_=None)
+    if operator == "number_gte":
+        return valid_number & (numeric_value >= float(value))
+    if operator == "number_lte":
+        return valid_number & (numeric_value <= float(value))
+    if operator == "number_between":
+        if not value_to:
+            return None
+        return valid_number & (numeric_value >= float(value)) & (numeric_value <= float(value_to))
+    return None
+
+
+def _date_dealroom_predicate(
+    raw_value: ColumnElement[str], operator: str, value: str, value_to: str
+) -> ColumnElement[bool] | None:
+    if not value:
+        return None
+    valid_date = raw_value.op("~")(r"^\d{4}-\d{2}-\d{2}$")
+    date_value = case((valid_date, sql_cast(raw_value, Date)), else_=None)
+    if operator == "date_gte":
+        return valid_date & (date_value >= value)
+    if operator == "date_lte":
+        return valid_date & (date_value <= value)
+    if operator == "date_between":
+        if not value_to:
+            return None
+        return valid_date & (date_value >= value) & (date_value <= value_to)
+    return None
 
 
 def _search_filter(search: str) -> ColumnElement[bool]:
@@ -142,6 +220,18 @@ async def get_company(
     if not include_archived:
         stmt = stmt.where(Company.archived_at.is_(None))
     return cast("Company | None", await session.scalar(stmt))
+
+
+async def get_latest_dealroom_import_row(
+    session: AsyncSession, company_id: uuid.UUID
+) -> ImportRow | None:
+    stmt = (
+        select(ImportRow)
+        .where(ImportRow.matched_company_id == company_id)
+        .order_by(ImportRow.updated_at.desc(), ImportRow.row_number.desc())
+        .limit(1)
+    )
+    return cast("ImportRow | None", await session.scalar(stmt))
 
 
 async def list_companies(

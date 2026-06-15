@@ -26,7 +26,11 @@ describe("CompanyList", () => {
     vi.mocked(api.get).mockImplementation((path) =>
       Promise.resolve(
         path === "/companies/dealroom-columns"
-          ? ["ID", "Name", "Website"]
+          ? [
+              { name: "ID", kind: "text" },
+              { name: "Name", kind: "text" },
+              { name: "Website", kind: "text" },
+            ]
           : {
               items: [
                 {
@@ -55,7 +59,11 @@ describe("CompanyList", () => {
     vi.mocked(api.get).mockImplementation((path) =>
       Promise.resolve(
         path === "/companies/dealroom-columns"
-          ? ["ID", "Name", "Website"]
+          ? [
+              { name: "ID", kind: "text" },
+              { name: "Name", kind: "text" },
+              { name: "Website", kind: "text" },
+            ]
           : { items: [], total: 0, limit: 50, offset: 0 },
       ),
     );

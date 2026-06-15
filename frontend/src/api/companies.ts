@@ -9,8 +9,11 @@ import type {
   Company,
   CompanyCompleteness,
   CompanyCreate,
+  CompanyDealroomData,
   CompanyUpdate,
   Page,
+  Rubric,
+  RubricUpdate,
 } from "@/api/types";
 
 const KEY = "companies";
@@ -30,8 +33,14 @@ export interface CompanyFilters {
   has_website?: boolean;
   min_completeness?: number;
   max_completeness?: number;
-  dealroom_column?: string;
-  dealroom_contains?: string;
+  dealroom_filter?: string[];
+}
+
+export type DealroomColumnKind = "text" | "number" | "date" | "boolean";
+
+export interface DealroomColumnOption {
+  name: string;
+  kind: DealroomColumnKind;
 }
 
 export function useCompanies(params?: { limit?: number; offset?: number; q?: string }) {
@@ -65,8 +74,7 @@ export function useInfiniteCompanies(q?: string, filters?: CompanyFilters) {
         has_website: filters?.has_website,
         min_completeness: filters?.min_completeness,
         max_completeness: filters?.max_completeness,
-        dealroom_column: filters?.dealroom_column,
-        dealroom_contains: filters?.dealroom_contains,
+        dealroom_filter: filters?.dealroom_filter?.length ? filters.dealroom_filter : undefined,
       }),
     getNextPageParam: (lastPage) => {
       const loaded = lastPage.offset + lastPage.items.length;
@@ -78,7 +86,7 @@ export function useInfiniteCompanies(q?: string, filters?: CompanyFilters) {
 export function useDealroomColumns() {
   return useQuery({
     queryKey: [KEY, "dealroom-columns"],
-    queryFn: () => api.get<string[]>("/companies/dealroom-columns"),
+    queryFn: () => api.get<DealroomColumnOption[]>("/companies/dealroom-columns"),
   });
 }
 
@@ -94,6 +102,22 @@ export function useCompanyCompleteness(id: string | undefined) {
   return useQuery({
     queryKey: [KEY, id, "completeness"],
     queryFn: () => api.get<CompanyCompleteness>(`/companies/${id}/completeness`),
+    enabled: !!id,
+  });
+}
+
+export function useCompanyDealroomData(id: string | undefined) {
+  return useQuery({
+    queryKey: [KEY, id, "dealroom-data"],
+    queryFn: () => api.get<CompanyDealroomData>(`/companies/${id}/dealroom-data`),
+    enabled: !!id,
+  });
+}
+
+export function useCompanyRubric(id: string | undefined) {
+  return useQuery({
+    queryKey: [KEY, id, "rubric"],
+    queryFn: () => api.get<Rubric>(`/companies/${id}/rubric`),
     enabled: !!id,
   });
 }
@@ -114,5 +138,13 @@ export function useUpdateCompany(id: string) {
       qc.invalidateQueries({ queryKey: [KEY, id] });
       qc.invalidateQueries({ queryKey: [KEY] });
     },
+  });
+}
+
+export function useUpdateCompanyRubric(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: RubricUpdate) => api.patch<Rubric>(`/companies/${id}/rubric`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [KEY, id, "rubric"] }),
   });
 }

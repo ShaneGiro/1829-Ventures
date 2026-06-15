@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from app.core.constants import RelationshipStatus
@@ -57,3 +59,13 @@ class CompanyCompleteness(BaseModel):
     company_id: str
     completeness_pct: float
     missing_fields: list[str]
+
+
+class CompanyDealroomData(BaseModel):
+    company_id: str
+    import_row_id: str | None = None
+    batch_id: str | None = None
+    row_number: int | None = None
+    status: str | None = None
+    raw: dict[str, Any] = {}
+    normalized: dict[str, Any] = {}

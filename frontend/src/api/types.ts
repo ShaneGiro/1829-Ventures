@@ -7,6 +7,15 @@ export type Company = Schemas["CompanyRead"];
 export type CompanyCreate = Schemas["CompanyCreate"];
 export type CompanyUpdate = Schemas["CompanyUpdate"];
 export type CompanyCompleteness = Schemas["CompanyCompleteness"];
+export interface CompanyDealroomData {
+  company_id: string;
+  import_row_id?: string | null;
+  batch_id?: string | null;
+  row_number?: number | null;
+  status?: string | null;
+  raw: Record<string, unknown>;
+  normalized: Record<string, unknown>;
+}
 export type Person = Schemas["PersonRead"];
 export type Affiliation = Schemas["AffiliationRead"];
 export type Deal = Schemas["DealRead"];
