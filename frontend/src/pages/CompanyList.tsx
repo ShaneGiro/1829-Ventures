@@ -1,33 +1,128 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { useInfiniteCompanies } from "@/api/companies";
+import {
+  useDealroomColumns,
+  useInfiniteCompanies,
+  type CompanyFilters,
+} from "@/api/companies";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StateNotice } from "@/components/ui/state";
+
+const SECTORS = [
+  "Photonics, Imaging & Quantum",
+  "Clean Tech & Energy",
+  "Life Sciences & Health Tech",
+  "Intelligent Systems, AI & Cyber",
+  "Other",
+];
+
+const RELATIONSHIP_STATUSES = [
+  "identified",
+  "contacted",
+  "review_needed",
+  "active",
+  "nurture",
+  "strategic",
+  "inactive",
+];
+
+type TriState = "" | "yes" | "no";
+
+const triToBool = (v: TriState): boolean | undefined =>
+  v === "yes" ? true : v === "no" ? false : undefined;
 
 export function CompanyList() {
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
 
-  // Debounce the search so we refetch once the user pauses, not per keystroke.
+  // Filter UI state.
+  const [sectors, setSectors] = useState<string[]>([]);
+  const [statuses, setStatuses] = useState<string[]>([]);
+  const [stage, setStage] = useState("");
+  const [country, setCountry] = useState("");
+  const [state, setState] = useState("");
+  const [city, setCity] = useState("");
+  const [ritNexus, setRitNexus] = useState<TriState>("");
+  const [reviewed, setReviewed] = useState<TriState>(""); // yes = reviewed, no = unreviewed
+  const [hasWebsite, setHasWebsite] = useState<TriState>("");
+  const [minCompleteness, setMinCompleteness] = useState("");
+  const [maxCompleteness, setMaxCompleteness] = useState("");
+  const [dealroomColumn, setDealroomColumn] = useState("");
+  const [dealroomContains, setDealroomContains] = useState("");
+
   useEffect(() => {
     const id = setTimeout(() => setDebouncedQ(q.trim()), 250);
     return () => clearTimeout(id);
   }, [q]);
 
-  const {
-    data,
-    isLoading,
-    isError,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useInfiniteCompanies(debouncedQ || undefined);
+  const dealroomColumns = useDealroomColumns();
+
+  const filters = useMemo<CompanyFilters>(() => {
+    const stages = splitValues(stage);
+    const countries = country
+      .split(",")
+      .map((c) => c.trim())
+      .filter(Boolean);
+    const states = splitValues(state);
+    const cities = splitValues(city);
+    const min = Number(minCompleteness);
+    const max = Number(maxCompleteness);
+    const rawContains = dealroomContains.trim();
+    return {
+      sector: sectors,
+      relationship_status: statuses,
+      stage: stages,
+      country: countries,
+      state: states,
+      city: cities,
+      has_rit_nexus: triToBool(ritNexus),
+      // "reviewed" yes → imported_unreviewed false; no → unreviewed true.
+      imported_unreviewed: reviewed === "yes" ? false : reviewed === "no" ? true : undefined,
+      has_website: triToBool(hasWebsite),
+      min_completeness: boundedPercent(minCompleteness, min),
+      max_completeness: boundedPercent(maxCompleteness, max),
+      dealroom_column: dealroomColumn && rawContains ? dealroomColumn : undefined,
+      dealroom_contains: dealroomColumn && rawContains ? rawContains : undefined,
+    };
+  }, [
+    sectors,
+    statuses,
+    stage,
+    country,
+    state,
+    city,
+    ritNexus,
+    reviewed,
+    hasWebsite,
+    minCompleteness,
+    maxCompleteness,
+    dealroomColumn,
+    dealroomContains,
+  ]);
+
+  const activeCount =
+    sectors.length +
+    statuses.length +
+    (stage.trim() ? 1 : 0) +
+    (country.trim() ? 1 : 0) +
+    (state.trim() ? 1 : 0) +
+    (city.trim() ? 1 : 0) +
+    (ritNexus ? 1 : 0) +
+    (reviewed ? 1 : 0) +
+    (hasWebsite ? 1 : 0) +
+    (minCompleteness !== "" ? 1 : 0) +
+    (maxCompleteness !== "" ? 1 : 0) +
+    (dealroomColumn && dealroomContains.trim() ? 1 : 0);
+
+  const { data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useInfiniteCompanies(debouncedQ || undefined, filters);
 
   const companies = data?.pages.flatMap((page) => page.items) ?? [];
   const total = data?.pages[0]?.total ?? 0;
 
-  // Auto-load the next page when the sentinel scrolls into view.
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const node = sentinelRef.current;
@@ -42,6 +137,25 @@ export function CompanyList() {
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  const toggle = (list: string[], value: string, set: (v: string[]) => void) =>
+    set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
+
+  const clearFilters = () => {
+    setSectors([]);
+    setStatuses([]);
+    setStage("");
+    setCountry("");
+    setState("");
+    setCity("");
+    setRitNexus("");
+    setReviewed("");
+    setHasWebsite("");
+    setMinCompleteness("");
+    setMaxCompleteness("");
+    setDealroomColumn("");
+    setDealroomContains("");
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -49,13 +163,125 @@ export function CompanyList() {
           Companies
           {total > 0 && <span className="ml-2 text-sm text-muted-foreground">({total})</span>}
         </h1>
-        <Input
-          placeholder="Search by name, domain, or website…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="w-full sm:w-72"
-        />
+        <div className="flex items-center gap-2">
+          <Input
+            placeholder="Search by name, domain, website, description…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="w-full sm:w-72"
+          />
+          <Button variant="outline" size="sm" onClick={() => setShowFilters((s) => !s)}>
+            Filters{activeCount > 0 ? ` (${activeCount})` : ""}
+          </Button>
+        </div>
       </div>
+
+      {showFilters && (
+        <div className="space-y-4 rounded-lg border bg-muted/20 p-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold">Filters</h2>
+            {activeCount > 0 && (
+              <button
+                className="text-xs text-muted-foreground hover:underline"
+                onClick={clearFilters}
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+
+          <FilterGroup label="Sector">
+            {SECTORS.map((s) => (
+              <Chip
+                key={s}
+                active={sectors.includes(s)}
+                onClick={() => toggle(sectors, s, setSectors)}
+              >
+                {s}
+              </Chip>
+            ))}
+          </FilterGroup>
+
+          <FilterGroup label="Relationship status">
+            {RELATIONSHIP_STATUSES.map((s) => (
+              <Chip
+                key={s}
+                active={statuses.includes(s)}
+                onClick={() => toggle(statuses, s, setStatuses)}
+              >
+                {s.replace("_", " ")}
+              </Chip>
+            ))}
+          </FilterGroup>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <TextFilter label="Stage" value={stage} onChange={setStage} placeholder="Seed, Series A" />
+            <label className="space-y-1 text-xs">
+              <span className="font-medium text-muted-foreground">Country</span>
+              <Input
+                placeholder="e.g. United States"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+              />
+            </label>
+            <TextFilter label="State" value={state} onChange={setState} placeholder="NY, CA" />
+            <TextFilter label="City" value={city} onChange={setCity} placeholder="Rochester" />
+            <TriSelect label="RIT nexus" value={ritNexus} onChange={setRitNexus} />
+            <TriSelect label="Reviewed" value={reviewed} onChange={setReviewed} />
+            <TriSelect label="Has website" value={hasWebsite} onChange={setHasWebsite} />
+            <label className="space-y-1 text-xs">
+              <span className="font-medium text-muted-foreground">Min completeness %</span>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                placeholder="0"
+                value={minCompleteness}
+                onChange={(e) => setMinCompleteness(e.target.value)}
+              />
+            </label>
+            <label className="space-y-1 text-xs">
+              <span className="font-medium text-muted-foreground">Max completeness %</span>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                placeholder="100"
+                value={maxCompleteness}
+                onChange={(e) => setMaxCompleteness(e.target.value)}
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <label className="space-y-1 text-xs">
+              <span className="font-medium text-muted-foreground">Dealroom CSV column</span>
+              <select
+                value={dealroomColumn}
+                onChange={(e) => setDealroomColumn(e.target.value)}
+                className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+              >
+                <option value="">Any column</option>
+                {(dealroomColumns.data ?? []).map((column) => (
+                  <option key={column} value={column}>
+                    {column}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1 text-xs">
+              <span className="font-medium text-muted-foreground">Column contains</span>
+              <Input
+                placeholder="Search selected Dealroom column"
+                value={dealroomContains}
+                onChange={(e) => setDealroomContains(e.target.value)}
+                disabled={!dealroomColumn}
+              />
+            </label>
+          </div>
+        </div>
+      )}
+
       {isLoading && <StateNotice title="Loading companies" />}
       {isError && (
         <StateNotice
@@ -101,7 +327,6 @@ export function CompanyList() {
               )}
             </tbody>
           </table>
-          {/* Sentinel + fallback button for loading more results. */}
           <div ref={sentinelRef} className="flex justify-center p-3 text-sm text-muted-foreground">
             {isFetchingNextPage
               ? "Loading more…"
@@ -114,5 +339,93 @@ export function CompanyList() {
         </div>
       )}
     </div>
+  );
+}
+
+function splitValues(value: string): string[] {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function boundedPercent(raw: string, parsed: number): number | undefined {
+  if (raw === "" || Number.isNaN(parsed)) return undefined;
+  return Math.min(100, Math.max(0, parsed));
+}
+
+function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <div className="flex flex-wrap gap-1.5">{children}</div>
+    </div>
+  );
+}
+
+function TextFilter({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <label className="space-y-1 text-xs">
+      <span className="font-medium text-muted-foreground">{label}</span>
+      <Input placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
+    </label>
+  );
+}
+
+function Chip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
+        active
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-border bg-background hover:bg-accent"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function TriSelect({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: TriState;
+  onChange: (v: TriState) => void;
+}) {
+  return (
+    <label className="space-y-1 text-xs">
+      <span className="font-medium text-muted-foreground">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as TriState)}
+        className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+      >
+        <option value="">Any</option>
+        <option value="yes">Yes</option>
+        <option value="no">No</option>
+      </select>
+    </label>
   );
 }

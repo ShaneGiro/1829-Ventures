@@ -109,6 +109,14 @@ Recent operational fixes:
   Celery jobs), and existing companies were backfilled. The query is embedded
   in-process at request time; if embeddings are unavailable, search degrades to
   exact + full-text matching.
+- Company filtering now covers both first-class CRM fields and the canonical
+  Dealroom export surface. `GET /api/companies` supports structured filters for
+  sector, relationship status, stage, country/state/city, source system, RIT
+  nexus, reviewed/imported status, website presence, completeness range, and
+  created/updated date ranges. It also accepts `dealroom_column` +
+  `dealroom_contains` for case-insensitive substring filtering against any
+  column in the canonical Dealroom CSV registry. `GET
+  /api/companies/dealroom-columns` exposes that registry to the frontend.
 
 ### Glossary and Acronyms
 
@@ -311,6 +319,10 @@ Implemented UI capabilities:
 - Company list/detail, people list/detail, pipeline board, task list, import
   manager, portfolio dashboard, and Ritchie policy/activity pages.
 - Company list with debounced hybrid search and infinite scroll over all records.
+- Company list filters for CRM fields plus a Dealroom CSV column dropdown backed
+  by the backend's canonical column registry. The raw-column filter queries
+  committed import-row payloads linked to companies, so it applies to Dealroom
+  imported/matched companies rather than manually created records.
 - Import manager that accepts CSV/Excel, downloads the column template, and
   discards uncommitted batches on page load.
 - In-page screening rubric editor for the active deal.
@@ -405,7 +417,10 @@ Representative API responsibilities:
 
 - Authentication and current-user lookup.
 - CRUD and archive endpoints for CRM entities.
-- Company list with `q` hybrid search (exact + semantic) and offset pagination.
+- Company list with `q` hybrid search (exact + full-text + semantic), structured
+  filters, Dealroom raw-column filtering, and offset pagination.
+- Dealroom column registry endpoint for building frontend filter controls without
+  duplicating CSV column names in TypeScript.
 - Pipeline actions and diligence/rubric operations.
 - Dealroom CSV/Excel upload/preview/commit, column-template download, and
   discard of uncommitted batches.
@@ -457,7 +472,8 @@ Implemented repositories:
 
 - `base.py`
 - `users.py`
-- `companies.py`
+- `companies.py`: company listing/search filters, including first-class CRM
+  fields and raw Dealroom column predicates through linked import rows.
 - `people.py`
 - `interactions.py`
 - `investments.py`
@@ -786,6 +802,10 @@ Write governance rules:
 - Every create/update/archive path should produce audit history.
 - Core entities use soft archival.
 - Imported fields preserve raw source and field-level provenance.
+- Dealroom raw CSV values are stored on `import_rows.raw_data["dealroom"]`; the
+  company record stores normalized first-class fields plus field provenance. Raw
+  Dealroom column filters query those linked import rows through
+  `ImportRow.matched_company_id`.
 - Dealroom-imported companies start as `imported_unreviewed`.
 - Ritchie policy is binary: authorized or blocked.
 - Blocked Ritchie calls never write.
@@ -854,6 +874,26 @@ The current CRM contains `/agent` API surfaces, policy management, activity
 logging, typed tool execution foundations, and frontend policy/activity views.
 The full kernelbot MCP Streamable HTTP integration should be verified end to end
 before production use.
+
+### Embedding Model Cold Start (search first-query latency)
+
+The sentence-transformer used for semantic company search is loaded lazily in the
+API process (see `app/integrations/embeddings.py`). The first search after an API
+start/reload pays a one-time model-load cost (a few seconds); every subsequent
+search reuses the in-memory model and is fast. This is a UX wart, not a
+correctness bug, but the current company-list implementation embeds the query
+before returning the merged response, so a cold semantic model can delay the
+entire searched company list response.
+
+To fix later: warm the model at startup (e.g., a background task in the FastAPI
+lifespan that calls `get_embedding_provider().embed_texts(["warmup"])`) so the
+first user search is fast. Tradeoff: the model's (~1 GB) memory becomes resident
+in the API process from boot, and on the 6 GB VM it would be loaded in both the
+API and the Celery worker. Alternatives are to skip/defer semantic search when
+exact + full-text already fill the requested page, embed queries in the worker
+only and keep the API process light, or return exact/full-text results first and
+load semantic matches separately. Decide based on VM memory headroom and desired
+search UX before production.
 
 ## Testing And Verification
 
@@ -939,3 +979,5 @@ Postgres image is built from `docker/postgres/Dockerfile` to include pgvector.
 4. Add invite-gated access and stricter role-specific permissions when needed.
 5. Harden production deployment: nginx, TLS, persistent object storage,
    production Compose/Kubernetes equivalent, backups, and monitoring.
+6. Warm the embedding model at API startup (or move query embedding to the worker)
+   to remove the first-search cold-start latency. See "Embedding Model Cold Start".

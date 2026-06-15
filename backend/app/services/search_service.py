@@ -111,85 +111,17 @@ async def keyword_search(
     return [_result_from_row(row) for row in rows]
 
 
-async def keyword_company_ids(
-    session: AsyncSession,
-    query: str,
-    *,
-    limit: int = 100,
-) -> list[uuid.UUID]:
-    """Full-text company matches over name, description, and thesis notes.
-
-    Word-aware (unlike substring ILIKE), so "dog" matches a company whose
-    description mentions dogs even when the name does not. Ordered by relevance.
-    """
+def embed_query(query: str, *, provider: EmbeddingProvider | None = None) -> list[float] | None:
+    """Embed a search query for vector search. Returns None if embeddings are
+    unavailable (disabled or model load failure) so callers degrade gracefully."""
     cleaned = query.strip()
     if not cleaned:
-        return []
-    stmt = text(
-        """
-        WITH q AS (SELECT websearch_to_tsquery('english', :query) AS query)
-        SELECT c.id AS entity_id,
-               ts_rank_cd(
-                   setweight(to_tsvector('english', coalesce(c.name, '')), 'A') ||
-                   setweight(to_tsvector('english', coalesce(c.description, '')), 'B') ||
-                   setweight(to_tsvector('english', coalesce(c.thesis_notes, '')), 'C'),
-                   q.query
-               ) AS rank
-        FROM companies c, q
-        WHERE c.archived_at IS NULL
-          AND (
-              setweight(to_tsvector('english', coalesce(c.name, '')), 'A') ||
-              setweight(to_tsvector('english', coalesce(c.description, '')), 'B') ||
-              setweight(to_tsvector('english', coalesce(c.thesis_notes, '')), 'C')
-          ) @@ q.query
-        ORDER BY rank DESC
-        LIMIT :limit
-        """
-    )
-    rows = (await session.execute(stmt, {"query": cleaned, "limit": limit})).mappings()
-    return [row["entity_id"] for row in rows]
-
-
-async def semantic_company_matches(
-    session: AsyncSession,
-    query: str,
-    *,
-    limit: int = 50,
-    min_score: float = 0.0,
-    provider: EmbeddingProvider | None = None,
-) -> list[tuple[uuid.UUID, float]]:
-    """Vector nearest-neighbor company ids for a query, ranked by similarity.
-
-    Only matches with cosine similarity >= ``min_score`` are returned, so weak
-    (effectively random) neighbors don't flood results. Degrades gracefully: if
-    embeddings are disabled or the model can't load, returns an empty list so
-    callers fall back to keyword/exact matching.
-    """
-    cleaned = query.strip()
-    if not cleaned:
-        return []
+        return None
     try:
-        embedding = (provider or get_embedding_provider()).embed_texts([cleaned])[0]
+        return (provider or get_embedding_provider()).embed_texts([cleaned])[0]
     except Exception:  # noqa: BLE001 - embeddings are optional; fall back to keyword search
-        logger.warning("Query embedding unavailable; skipping semantic company search.")
-        return []
-    stmt = text(
-        """
-        SELECT c.id AS entity_id,
-               1 - (c.embedding <=> CAST(:embedding AS vector)) AS rank
-        FROM companies c
-        WHERE c.archived_at IS NULL
-          AND c.embedding IS NOT NULL
-        ORDER BY c.embedding <=> CAST(:embedding AS vector)
-        LIMIT :limit
-        """
-    )
-    rows = (
-        await session.execute(stmt, {"embedding": _pgvector_literal(embedding), "limit": limit})
-    ).mappings()
-    return [
-        (row["entity_id"], score) for row in rows if (score := float(row["rank"] or 0)) >= min_score
-    ]
+        logger.warning("Query embedding unavailable; skipping semantic search.")
+        return None
 
 
 async def semantic_search(

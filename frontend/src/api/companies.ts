@@ -16,6 +16,24 @@ import type {
 const KEY = "companies";
 const PAGE_SIZE = 50;
 
+/** Structured company filters, mirroring the backend `CompanyFilters`. */
+export interface CompanyFilters {
+  sector?: string[];
+  relationship_status?: string[];
+  stage?: string[];
+  country?: string[];
+  state?: string[];
+  city?: string[];
+  source_system?: string[];
+  has_rit_nexus?: boolean;
+  imported_unreviewed?: boolean;
+  has_website?: boolean;
+  min_completeness?: number;
+  max_completeness?: number;
+  dealroom_column?: string;
+  dealroom_contains?: string;
+}
+
 export function useCompanies(params?: { limit?: number; offset?: number; q?: string }) {
   return useQuery({
     queryKey: [KEY, params],
@@ -23,21 +41,44 @@ export function useCompanies(params?: { limit?: number; offset?: number; q?: str
   });
 }
 
-/** Paginated company list with infinite scroll. Optionally filtered by `q`. */
-export function useInfiniteCompanies(q?: string) {
+/** Paginated company list with infinite scroll, optional `q` search, and filters. */
+export function useInfiniteCompanies(q?: string, filters?: CompanyFilters) {
   return useInfiniteQuery({
-    queryKey: [KEY, "infinite", q ?? ""],
+    queryKey: [KEY, "infinite", q ?? "", filters ?? {}],
     initialPageParam: 0,
     queryFn: ({ pageParam }) =>
       api.get<Page<Company>>("/companies", {
         limit: PAGE_SIZE,
         offset: pageParam,
         q: q || undefined,
+        sector: filters?.sector?.length ? filters.sector : undefined,
+        relationship_status: filters?.relationship_status?.length
+          ? filters.relationship_status
+          : undefined,
+        stage: filters?.stage?.length ? filters.stage : undefined,
+        country: filters?.country?.length ? filters.country : undefined,
+        state: filters?.state?.length ? filters.state : undefined,
+        city: filters?.city?.length ? filters.city : undefined,
+        source_system: filters?.source_system?.length ? filters.source_system : undefined,
+        has_rit_nexus: filters?.has_rit_nexus,
+        imported_unreviewed: filters?.imported_unreviewed,
+        has_website: filters?.has_website,
+        min_completeness: filters?.min_completeness,
+        max_completeness: filters?.max_completeness,
+        dealroom_column: filters?.dealroom_column,
+        dealroom_contains: filters?.dealroom_contains,
       }),
     getNextPageParam: (lastPage) => {
       const loaded = lastPage.offset + lastPage.items.length;
       return loaded < lastPage.total ? loaded : undefined;
     },
+  });
+}
+
+export function useDealroomColumns() {
+  return useQuery({
+    queryKey: [KEY, "dealroom-columns"],
+    queryFn: () => api.get<string[]>("/companies/dealroom-columns"),
   });
 }
 

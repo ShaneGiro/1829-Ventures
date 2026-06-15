@@ -20,9 +20,11 @@ export class ApiError extends Error {
   }
 }
 
+type QueryValue = string | number | boolean | undefined | (string | number)[];
+
 interface RequestOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
-  query?: Record<string, string | number | boolean | undefined>;
+  query?: Record<string, QueryValue>;
 }
 
 function buildUrl(path: string, query?: RequestOptions["query"]): string {
@@ -30,7 +32,13 @@ function buildUrl(path: string, query?: RequestOptions["query"]): string {
   if (!query) return url;
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined) params.set(key, String(value));
+    if (value === undefined) continue;
+    // Arrays become repeated params (?k=a&k=b) so FastAPI parses them as list[str].
+    if (Array.isArray(value)) {
+      for (const item of value) params.append(key, String(item));
+    } else {
+      params.set(key, String(value));
+    }
   }
   const qs = params.toString();
   return qs ? `${url}?${qs}` : url;

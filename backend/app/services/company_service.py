@@ -15,6 +15,7 @@ from app.core.exceptions import NotFoundError, ValidationError
 from app.models.company import Company
 from app.models.user import User
 from app.repositories import companies as company_repo
+from app.repositories.companies import EMPTY_FILTERS, CompanyFilters
 from app.schemas.company import CompanyCompleteness, CompanyCreate, CompanyUpdate
 from app.services import audit_service, search_service
 
@@ -33,22 +34,28 @@ def _enqueue_embedding(company_id: uuid.UUID) -> None:
         pass
 
 
-async def search_companies(
+async def list_companies(
     session: AsyncSession,
-    query: str,
     *,
+    query: str | None,
+    filters: CompanyFilters,
     limit: int,
     offset: int,
 ) -> tuple[list[Company], int]:
-    """Hybrid company search, merged in priority order:
+    """Company listing with structured filters and optional hybrid text search.
 
-    1. exact/substring matches on name, domain, website (ILIKE);
-    2. full-text matches on name, description, thesis notes (tsvector) — finds
-       query words in the description even when the name doesn't match;
-    3. semantically similar companies (pgvector) above a similarity threshold.
-
-    Returns the requested page and the total count.
+    With no ``query``, returns the filtered list ordered by name (paginated +
+    counted). With a ``query``, returns a hybrid ranked result that still honors
+    every filter: (1) exact/substring on name/domain/website, (2) full-text on
+    name/description/thesis notes, (3) semantic (pgvector) above a threshold.
     """
+    if not (query and query.strip()):
+        companies = await company_repo.list_companies(
+            session, limit=limit, offset=offset, filters=filters
+        )
+        total = await company_repo.count_companies(session, filters=filters)
+        return companies, total
+
     ordered: list[uuid.UUID] = []
     seen: set[uuid.UUID] = set()
 
@@ -58,19 +65,35 @@ async def search_companies(
                 ordered.append(company_id)
                 seen.add(company_id)
 
-    _add(await company_repo.search_company_ids(session, search=query, limit=500))
-    _add(await search_service.keyword_company_ids(session, query, limit=100))
-    semantic = await search_service.semantic_company_matches(
-        session,
-        query,
-        limit=settings.search_semantic_limit,
-        min_score=settings.search_semantic_threshold,
-    )
-    _add([company_id for company_id, _score in semantic])
+    _add(await company_repo.search_company_ids(session, search=query, limit=500, filters=filters))
+    _add(await company_repo.fulltext_company_ids(session, search=query, limit=100, filters=filters))
+    embedding = search_service.embed_query(query)
+    if embedding is not None:
+        _add(
+            await company_repo.semantic_company_ids(
+                session,
+                embedding=embedding,
+                limit=settings.search_semantic_limit,
+                min_score=settings.search_semantic_threshold,
+                filters=filters,
+            )
+        )
 
     total = len(ordered)
     page_ids = ordered[offset : offset + limit]
     return await company_repo.get_companies_by_ids(session, page_ids), total
+
+
+async def search_companies(
+    session: AsyncSession,
+    query: str,
+    *,
+    limit: int,
+    offset: int,
+    filters: CompanyFilters = EMPTY_FILTERS,
+) -> tuple[list[Company], int]:
+    """Backward-compatible hybrid search entry point (delegates to list_companies)."""
+    return await list_companies(session, query=query, filters=filters, limit=limit, offset=offset)
 
 
 async def _calculate_completeness(

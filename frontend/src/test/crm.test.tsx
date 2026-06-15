@@ -23,20 +23,26 @@ describe("CompanyList", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("renders companies returned by the API", async () => {
-    vi.mocked(api.get).mockResolvedValue({
-      items: [
-        {
-          id: "1",
-          name: "Acme Photonics",
-          sector: "Photonics, Imaging & Quantum",
-          relationship_status: "active",
-          completeness_pct: 80,
-        },
-      ],
-      total: 1,
-      limit: 50,
-      offset: 0,
-    });
+    vi.mocked(api.get).mockImplementation((path) =>
+      Promise.resolve(
+        path === "/companies/dealroom-columns"
+          ? ["ID", "Name", "Website"]
+          : {
+              items: [
+                {
+                  id: "1",
+                  name: "Acme Photonics",
+                  sector: "Photonics, Imaging & Quantum",
+                  relationship_status: "active",
+                  completeness_pct: 80,
+                },
+              ],
+              total: 1,
+              limit: 50,
+              offset: 0,
+            },
+      ),
+    );
 
     renderWithProviders(<CompanyList />);
 
@@ -46,7 +52,13 @@ describe("CompanyList", () => {
   });
 
   it("shows an empty state when there are no companies", async () => {
-    vi.mocked(api.get).mockResolvedValue({ items: [], total: 0, limit: 50, offset: 0 });
+    vi.mocked(api.get).mockImplementation((path) =>
+      Promise.resolve(
+        path === "/companies/dealroom-columns"
+          ? ["ID", "Name", "Website"]
+          : { items: [], total: 0, limit: 50, offset: 0 },
+      ),
+    );
     renderWithProviders(<CompanyList />);
     await waitFor(() => expect(screen.getByText("No companies found.")).toBeInTheDocument());
   });
