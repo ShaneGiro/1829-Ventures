@@ -9,10 +9,52 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.constants import AgentEventStatus, AiWriteStatus, PolicyState
 from app.schemas.common import TimestampedRead
+
+
+class ToolDefinition(BaseModel):
+    """A typed tool's wire contract: name, kind, effective state, JSON Schema."""
+
+    name: str
+    description: str
+    kind: str
+    state: PolicyState
+    entity_type: str | None = None
+    input_schema: dict[str, Any]
+
+
+class ToolExecuteRequest(BaseModel):
+    payload: dict[str, Any] = Field(default_factory=dict)
+    event_id: str | None = None
+    confidence: float | None = None
+    source: str | None = None
+
+
+class ToolExecuteResponse(BaseModel):
+    status: str
+    tool: str
+    data: Any = None
+    rationale: str | None = None
+    idempotency_key: str | None = None
+    ai_audit_id: str | None = None
+    event_id: str | None = None
+
+
+class AgentContextResult(BaseModel):
+    entity_type: str
+    entity_id: uuid.UUID
+    title: str
+    snippet: str | None = None
+    rank: float
+
+
+class PolicySetRequest(BaseModel):
+    tool: str
+    field_name: str | None = None
+    state: PolicyState
 
 
 class AgentPolicyRead(TimestampedRead):

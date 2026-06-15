@@ -61,6 +61,8 @@ class Settings(BaseSettings):
     google_redirect_uri: str = Field(default="http://localhost:8000/api/auth/callback")
     # Long-lived scoped key for Ritchie (the agent role). Compared by hash.
     agent_api_key: str = Field(default="")
+    # kernelbot webhook for outbound event fanout. Empty in local dev = no-op.
+    ritchie_webhook_url: str = Field(default="")
 
     # ─── Object storage (S3-compatible: MinIO in v1, R2 in v2) ────────────────
     s3_endpoint_url: str = Field(default="http://localhost:9000")

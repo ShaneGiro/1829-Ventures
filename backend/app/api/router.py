@@ -10,6 +10,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.api.routes import (
+    agent,
     analytics,
     auth,
     companies,
@@ -50,3 +51,4 @@ api_router.include_router(documents.router, prefix="/documents", tags=["document
 api_router.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 api_router.include_router(email.router, prefix="/email", tags=["email"])
+api_router.include_router(agent.router, prefix="/agent", tags=["agent"])

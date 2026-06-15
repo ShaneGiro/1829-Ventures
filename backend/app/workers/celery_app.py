@@ -21,8 +21,7 @@ celery_app = Celery(
         "app.workers.jobs.embedding_jobs",
         "app.workers.jobs.analytics_jobs",
         "app.workers.jobs.gmail_jobs",
-        # Later agents append their job modules here, e.g.:
-        # "app.workers.jobs.agent_jobs",
+        "app.workers.jobs.agent_jobs",
     ],
 )
 
