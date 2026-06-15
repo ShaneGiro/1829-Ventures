@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Request, Response
+from starlette.responses import RedirectResponse
 
+from app.core.config import settings
 from app.core.dependencies import CurrentUser, DbSession
 from app.integrations.google_oauth import google_oauth_client
 from app.schemas.user import UserRead
@@ -17,10 +19,11 @@ async def login(request: Request) -> Response:
     return await google_oauth_client.authorize_redirect(request)
 
 
-@router.get("/callback", response_model=UserRead)
-async def callback(request: Request, db: DbSession, response: Response) -> UserRead:
+@router.get("/callback")
+async def callback(request: Request, db: DbSession) -> RedirectResponse:
     profile = await google_oauth_client.fetch_profile(request)
     result = await auth_service.authenticate_oauth_profile(db, profile)
+    response = RedirectResponse(url=settings.frontend_url)
     response.set_cookie(
         auth_service.SESSION_COOKIE_NAME,
         result.access_token,
@@ -29,7 +32,7 @@ async def callback(request: Request, db: DbSession, response: Response) -> UserR
         secure=request.url.scheme == "https",
         samesite="lax",
     )
-    return UserRead.model_validate(result.user)
+    return response
 
 
 @router.post("/refresh")

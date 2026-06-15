@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     environment: str = Field(default="development")
     debug: bool = Field(default=False)
     api_v1_prefix: str = "/api"
+    frontend_url: str = Field(default="http://localhost:5173")
 
     # ─── Database ─────────────────────────────────────────────────────────────
     # A single connection string drives both engines; the database module swaps

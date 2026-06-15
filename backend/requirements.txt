@@ -18,6 +18,7 @@ fastapi>=0.115.0
 uvicorn[standard]>=0.32.0        # standard = includes websockets + httptools
 pydantic>=2.10.0
 pydantic-settings>=2.7.0         # env-var settings via BaseSettings
+email-validator>=2.2.0           # required by Pydantic EmailStr fields
 python-multipart>=0.0.19         # required for file upload endpoints
 
 
