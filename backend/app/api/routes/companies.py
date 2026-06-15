@@ -24,12 +24,17 @@ async def list_companies(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     include_archived: bool = False,
+    q: str | None = Query(default=None, description="Search by name, domain, or website"),
 ) -> PaginatedResponse[CompanyRead]:
     require_permission(current_user, PermissionAction.READ, PermissionResource.CRM)
-    companies = await company_repo.list_companies(
-        db, limit=limit, offset=offset, include_archived=include_archived
-    )
-    total = await company_repo.count_companies(db, include_archived=include_archived)
+    if q and q.strip():
+        # Hybrid: exact/substring matches first, then semantically similar (vector).
+        companies, total = await company_service.search_companies(db, q, limit=limit, offset=offset)
+    else:
+        companies = await company_repo.list_companies(
+            db, limit=limit, offset=offset, include_archived=include_archived
+        )
+        total = await company_repo.count_companies(db, include_archived=include_archived)
     return PaginatedResponse(
         items=[CompanyRead.model_validate(company) for company in companies],
         total=total,

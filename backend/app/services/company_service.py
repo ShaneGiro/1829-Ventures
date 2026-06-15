@@ -9,13 +9,68 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import actor_from_user
+from app.core.config import settings
 from app.core.constants import COMPANY_COMPLETENESS_FIELDS
 from app.core.exceptions import NotFoundError, ValidationError
 from app.models.company import Company
 from app.models.user import User
 from app.repositories import companies as company_repo
 from app.schemas.company import CompanyCompleteness, CompanyCreate, CompanyUpdate
-from app.services import audit_service
+from app.services import audit_service, search_service
+
+
+def _enqueue_embedding(company_id: uuid.UUID) -> None:
+    """Queue a background embedding refresh so semantic search stays current.
+
+    Imported lazily to avoid a hard dependency on Celery/Redis at import time;
+    failures are non-fatal (embeddings are additive to exact search).
+    """
+    try:
+        from app.workers.jobs.embedding_jobs import embed_companies
+
+        embed_companies.delay([str(company_id)])
+    except Exception:  # noqa: BLE001 - embedding is best-effort, never blocks the write
+        pass
+
+
+async def search_companies(
+    session: AsyncSession,
+    query: str,
+    *,
+    limit: int,
+    offset: int,
+) -> tuple[list[Company], int]:
+    """Hybrid company search, merged in priority order:
+
+    1. exact/substring matches on name, domain, website (ILIKE);
+    2. full-text matches on name, description, thesis notes (tsvector) — finds
+       query words in the description even when the name doesn't match;
+    3. semantically similar companies (pgvector) above a similarity threshold.
+
+    Returns the requested page and the total count.
+    """
+    ordered: list[uuid.UUID] = []
+    seen: set[uuid.UUID] = set()
+
+    def _add(ids: list[uuid.UUID]) -> None:
+        for company_id in ids:
+            if company_id not in seen:
+                ordered.append(company_id)
+                seen.add(company_id)
+
+    _add(await company_repo.search_company_ids(session, search=query, limit=500))
+    _add(await search_service.keyword_company_ids(session, query, limit=100))
+    semantic = await search_service.semantic_company_matches(
+        session,
+        query,
+        limit=settings.search_semantic_limit,
+        min_score=settings.search_semantic_threshold,
+    )
+    _add([company_id for company_id, _score in semantic])
+
+    total = len(ordered)
+    page_ids = ordered[offset : offset + limit]
+    return await company_repo.get_companies_by_ids(session, page_ids), total
 
 
 async def _calculate_completeness(
@@ -75,6 +130,7 @@ async def create_company(session: AsyncSession, payload: CompanyCreate, actor: U
     )
     await session.commit()
     await session.refresh(company)
+    _enqueue_embedding(company.id)
     return company
 
 
@@ -106,6 +162,9 @@ async def update_company(
         )
     await session.commit()
     await session.refresh(company)
+    # Re-embed only when the text that feeds the embedding changed.
+    if changes.keys() & {"name", "description", "thesis_notes"}:
+        _enqueue_embedding(company.id)
     return company
 
 

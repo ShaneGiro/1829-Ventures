@@ -2,13 +2,22 @@
 
 from __future__ import annotations
 
+import csv
+import io
 from decimal import Decimal
 from pathlib import Path
 
+import pytest
+from openpyxl import Workbook
+
+from app.integrations.dealroom_columns import TEMPLATE_COLUMNS, DealroomColumn
 from app.integrations.dealroom_csv import (
+    UnsupportedDealroomFile,
+    build_template_csv,
     map_dealroom_sector,
     normalize_domain,
     parse_dealroom_csv,
+    parse_dealroom_file,
     split_semicolon,
 )
 
@@ -82,3 +91,77 @@ def test_domain_and_sector_mapping() -> None:
         "Intelligent Systems, AI & Cyber"
     )
     assert map_dealroom_sector(["advanced materials"], [])[1] == ["unmapped_dealroom_taxonomy"]
+
+
+def test_template_columns_match_real_export() -> None:
+    csv_path = Path(__file__).resolve().parents[3] / "Dealroom Data (6.10.26).csv"
+    with csv_path.open(newline="") as handle:
+        rows = list(csv.reader(handle))
+    actual = tuple(header.strip() for header in rows[2])
+    assert actual == TEMPLATE_COLUMNS
+
+
+def test_build_template_csv_round_trips_through_parser() -> None:
+    template = build_template_csv()
+    header = next(csv.reader(io.StringIO(template)))
+    assert tuple(header) == TEMPLATE_COLUMNS
+    # A header-only template parses cleanly with zero data rows.
+    parsed = parse_dealroom_csv(template)
+    assert parsed.rows == []
+    assert parsed.headers[:2] == [DealroomColumn.ID, DealroomColumn.NAME]
+
+
+def _write_dealroom_xlsx(rows: list[list[object]]) -> bytes:
+    workbook = Workbook()
+    worksheet = workbook.active
+    assert worksheet is not None
+    for row in rows:
+        worksheet.append(row)
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
+def test_parse_dealroom_file_reads_excel_like_csv() -> None:
+    content = _write_dealroom_xlsx(
+        [
+            ["URL", "Filters"],
+            ["https://example.test", "filter"],
+            ["ID", "Name", "Dealroom URL", "Website", "Industries", "HQ city", "Latitude"],
+            [
+                4936908,
+                "Acme",
+                "https://app.dealroom.co/companies/acme",
+                "acme.com",
+                "robotics",
+                "Rochester",
+                34.0536909,
+            ],
+        ]
+    )
+    parsed = parse_dealroom_file(content, "alumni.xlsx")
+
+    assert parsed.header_row_number == 3
+    assert len(parsed.metadata_rows) == 2
+    row = parsed.rows[0]
+    # Integer-valued cells render without a trailing ".0" so IDs survive.
+    assert row.dealroom_id == "4936908"
+    assert row.name == "Acme"
+    assert row.latitude == Decimal("34.0536909")
+    assert row.sector == "Intelligent Systems, AI & Cyber"
+
+
+def test_parse_dealroom_file_dispatches_csv_by_extension() -> None:
+    csv_text = "\n".join(
+        [
+            "ID,Name,Dealroom URL,Website,Industries",
+            "1,Acme,https://app.dealroom.co/companies/acme,acme.com,robotics",
+        ]
+    )
+    parsed = parse_dealroom_file(csv_text.encode("utf-8"), "export.csv")
+    assert parsed.rows[0].name == "Acme"
+
+
+def test_parse_dealroom_file_rejects_unsupported_extension() -> None:
+    with pytest.raises(UnsupportedDealroomFile):
+        parse_dealroom_file(b"irrelevant", "notes.txt")

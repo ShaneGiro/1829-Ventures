@@ -120,6 +120,7 @@ backend-worker: env backend-install up-infra ## Run Celery worker locally
 	cd $(BACKEND) && ../$(CELERY) -A app.workers.celery_app.celery_app worker --loglevel=info
 
 migrate: env backend-install ## Apply database migrations to head
+	cd $(BACKEND) && ../$(PY) -m scripts.check_migration_state
 	cd $(BACKEND) && ../$(ALEMBIC) upgrade head
 
 revision: env backend-install ## Autogenerate a migration: make revision m="message"

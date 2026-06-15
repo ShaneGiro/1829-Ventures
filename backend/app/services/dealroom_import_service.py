@@ -10,7 +10,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import ImportRowStatus, ImportStatus
-from app.integrations.dealroom_csv import DealroomParsedRow, parse_dealroom_csv
+from app.integrations.dealroom_csv import DealroomParsedRow, parse_dealroom_file
 from app.models.company import Company
 from app.models.import_batch import ImportBatch
 from app.models.import_row import ImportRow
@@ -18,6 +18,18 @@ from app.repositories import imports as import_repo
 from app.schemas.import_batch import ImportCommitRequest
 
 CONFLICT_FIELDS = ("website", "description", "sector", "stage", "city", "state", "country")
+
+
+def _enqueue_company_embeddings(company_ids: list[uuid.UUID]) -> None:
+    """Best-effort background embedding for committed companies (never blocks commit)."""
+    if not company_ids:
+        return
+    try:
+        from app.workers.jobs.embedding_jobs import embed_companies
+
+        embed_companies.delay([str(cid) for cid in company_ids])
+    except Exception:  # noqa: BLE001 - embeddings are additive; failures are non-fatal
+        pass
 
 
 @dataclass(frozen=True)
@@ -33,7 +45,7 @@ async def preview_upload(
     filename: str | None,
     uploaded_by: uuid.UUID | None,
 ) -> DealroomPreview:
-    parsed = parse_dealroom_csv(content)
+    parsed = parse_dealroom_file(content, filename)
     batch = await import_repo.create_batch(
         session,
         filename=filename,
@@ -70,7 +82,22 @@ async def preview_upload(
         status=ImportStatus.UPLOADED,
     )
     await session.commit()
+    # The summary UPDATE bumps the server-side `updated_at`; refresh so callers can
+    # serialize the batch without triggering a lazy load outside the async context.
+    await session.refresh(batch)
     return DealroomPreview(batch=batch, rows=rows)
+
+
+async def discard_uncommitted_imports(session: AsyncSession) -> int:
+    """Erase staged import batches that were never committed. Returns count deleted.
+
+    Uploaded-but-uncommitted batches only stage preview rows; they create no
+    companies. Discarding them (rows cascade) keeps the database free of forgotten
+    import attempts. Committed and partially-committed batches are preserved.
+    """
+    deleted = await import_repo.delete_uncommitted_batches(session)
+    await session.commit()
+    return deleted
 
 
 async def get_import_batch(session: AsyncSession, batch_id: uuid.UUID) -> DealroomPreview | None:
@@ -92,6 +119,7 @@ async def commit_import(
         return None
     rows = await import_repo.list_rows(session, batch_id)
 
+    committed_company_ids: list[uuid.UUID] = []
     for row in rows:
         if row.status == ImportRowStatus.CREATED and request.commit_clean:
             parsed = import_repo.parsed_from_payload(row.raw_data)
@@ -102,6 +130,7 @@ async def commit_import(
             )
             row.matched_company_id = company.id
             row.status = ImportRowStatus.COMMITTED
+            committed_company_ids.append(company.id)
         elif row.status == ImportRowStatus.MATCHED and request.commit_clean:
             if row.matched_company_id is None:
                 row.status = ImportRowStatus.SKIPPED
@@ -120,6 +149,7 @@ async def commit_import(
                 provenance=row.field_provenance,
             )
             row.status = ImportRowStatus.COMMITTED
+            committed_company_ids.append(matched_company.id)
         elif row.status == ImportRowStatus.CONFLICT and request.skip_conflicts:
             row.status = ImportRowStatus.SKIPPED
             row.skip_reason = "Unresolved conflict skipped during partial commit"
@@ -132,6 +162,10 @@ async def commit_import(
     status = ImportStatus.PARTIALLY_COMMITTED if unresolved else ImportStatus.COMMITTED
     await import_repo.mark_batch_summary(session, batch=batch, summary=summary, status=status)
     await session.commit()
+    # Queue embeddings so committed companies are immediately searchable by vector.
+    _enqueue_company_embeddings(committed_company_ids)
+    # Refresh the batch so its server-side `updated_at` is loaded before serialization.
+    await session.refresh(batch)
     return DealroomPreview(batch=batch, rows=updated_rows)
 
 

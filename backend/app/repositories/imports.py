@@ -9,7 +9,8 @@ from decimal import Decimal
 from typing import Any, cast
 
 from geoalchemy2.elements import WKTElement
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import ImportRowStatus, ImportStatus, RelationshipStatus
@@ -44,6 +45,26 @@ async def create_batch(
 
 async def get_batch(session: AsyncSession, batch_id: uuid.UUID) -> ImportBatch | None:
     return cast("ImportBatch | None", await session.get(ImportBatch, batch_id))
+
+
+# Statuses with no committed companies — safe to discard. COMMITTED and
+# PARTIALLY_COMMITTED are kept because they created/enriched real records.
+UNCOMMITTED_STATUSES: tuple[ImportStatus, ...] = (
+    ImportStatus.PREVIEWING,
+    ImportStatus.UPLOADED,
+    ImportStatus.FAILED,
+)
+
+
+async def delete_uncommitted_batches(session: AsyncSession) -> int:
+    """Hard-delete staged batches that were never committed (rows cascade)."""
+    result = cast(
+        "CursorResult[Any]",
+        await session.execute(
+            delete(ImportBatch).where(ImportBatch.status.in_(UNCOMMITTED_STATUSES))
+        ),
+    )
+    return result.rowcount or 0
 
 
 async def list_rows(session: AsyncSession, batch_id: uuid.UUID) -> list[ImportRow]:
@@ -162,6 +183,12 @@ async def create_founder_contacts(
     founders: Iterable[DealroomFounder],
     row: DealroomParsedRow,
 ) -> None:
+    # Track person ids linked during this call: a company can list the same founder
+    # twice (or two founders resolve to the same person), and the DB existence check
+    # below can't see contacts added but not yet flushed. Without this, a duplicate
+    # would violate the (company_id, person_id) unique constraint and roll back the
+    # whole commit.
+    linked_person_ids: set[uuid.UUID] = set()
     for index, founder in enumerate(founders):
         person = await _find_person(session, founder)
         if person is None:
@@ -179,6 +206,8 @@ async def create_founder_contacts(
             )
             session.add(person)
             await session.flush()
+        if person.id in linked_person_ids:
+            continue
         linked = await _company_contact_exists(session, company.id, person.id)
         if not linked:
             session.add(
@@ -189,6 +218,7 @@ async def create_founder_contacts(
                     role="founder",
                 )
             )
+            linked_person_ids.add(person.id)
 
 
 async def mark_batch_summary(
