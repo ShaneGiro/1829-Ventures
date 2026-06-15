@@ -11,8 +11,8 @@ geometry: margin=1in
 - Implementation contributors:
   - Shane Girolamo
   - Claude/Codex/Gemini-assisted implementation agents
-- Current implementation branch: `v1`
-- Last updated: 2026-06-14
+- Current implementation branch: `v1.1`
+- Last updated: 2026-06-15
 
 ## Executive Summary
 
@@ -24,12 +24,14 @@ people, affiliations, contacts, interactions, deals, diligence artifacts,
 documents, tasks, investments, portfolio metrics, imports, audit history, and
 AI activity.
 
-The current implementation is backend-first. The backend uses FastAPI,
-SQLAlchemy, Postgres/PostGIS/pgvector, Redis, Celery, MinIO-compatible storage,
-Google OAuth, SendGrid integration boundaries, full-text search, semantic search,
-and a strict service/repository architecture. The frontend has not yet been
-implemented; it is planned as a React/Vite TypeScript application generated
-against the FastAPI OpenAPI contract.
+The current implementation includes both backend and frontend surfaces. The
+backend uses FastAPI, SQLAlchemy, Postgres/PostGIS/pgvector, Redis, Celery,
+MinIO-compatible storage, Google OAuth, SendGrid integration boundaries,
+full-text search, semantic search, Gmail ingestion plumbing, and Ritchie agent
+policy/activity surfaces. The frontend is a React/Vite TypeScript single-page
+application with protected routing, CRM workflow pages, import management,
+portfolio views, Ritchie activity/policy screens, and OpenAPI-generated domain
+types.
 
 ### Purpose
 
@@ -42,7 +44,8 @@ human-user access model.
 
 ### Current Status
 
-Backend Agents 01 through 08 are implemented and merged into `v1`:
+Backend Agents 01 through 11 and frontend Agents 20 through 23 have been
+implemented and merged into the v1 line:
 
 - Backend foundation.
 - Models, schemas, and migrations.
@@ -52,19 +55,60 @@ Backend Agents 01 through 08 are implemented and merged into `v1`:
 - Dealroom import.
 - Documents, tasks, and notifications.
 - Search and analytics.
+- Gmail ingestion and fuzzy company matching.
+- Ritchie agent integration and runtime authorization policy.
+- Backend review and hardening.
+- Frontend foundation.
+- CRM workflows: companies, people, pipeline, tasks, details, and rubric.
+- Imports, Ritchie activity/policy, and portfolio workflows.
+- Frontend responsiveness, loading/error/empty states, and build/test polish.
 
-Remaining backend implementation before frontend:
+Recent operational fixes:
 
-- Fix Alembic multiple heads created by parallel Agent 07/08 migrations.
-- Agent 09: Gmail ingestion.
-- Agent 10: Ritchie agent integration.
-- Agent 11: backend review and hardening.
-
-Frontend implementation begins after backend contracts are stable:
-
-- Agent 20: frontend foundation.
-- Agents 21 and 22: CRM workflows and imports/agent/portfolio workflows.
-- Agent 23: polish.
+- `email-validator` was added to backend dependencies because Pydantic
+  `EmailStr` requires it.
+- Google OAuth callback now sets the httpOnly session cookie and redirects to
+  `FRONTEND_URL` instead of returning raw user JSON.
+- `FRONTEND_URL` is an environment-driven setting, defaulting locally to
+  `http://localhost:5173`.
+- Local admin setup/run instructions were expanded in `README.md`.
+- `Makefile` now includes setup, Docker, frontend, backend, verification, and
+  recovery shortcuts.
+- Alembic parallel heads were merged by revision `38f12c67c5ce`.
+- Dealroom import now accepts CSV and Excel (`.xlsx`/`.xlsm`) exports, with the
+  full column set centralized in `app/integrations/dealroom_columns.py` and a
+  downloadable column template (`GET /api/imports/dealroom/template`).
+- The Dealroom import service refreshes the import batch after commit so its
+  server-side `updated_at` is loaded before serialization (previously this raised
+  a `MissingGreenlet` error in the upload/commit responses).
+- A startup migration guard (`scripts/check_migration_state.py`) auto-recovers the
+  "Alembic stamped but tables missing" state on container start and `make migrate`.
+- The import rows endpoint (`GET /api/imports/{batch_id}/rows`) now returns a
+  `PaginatedResponse[ImportRowRead]`, matching the app's list-response convention
+  and the frontend's expected page shape.
+- Integration tests now run against a dedicated, auto-created `<db>_test` database
+  (e.g. `crm_test`) instead of the application database. The fixtures drop and
+  recreate the whole schema, so running them against the dev database previously
+  wiped local data; they are now isolated from it.
+- Founder-contact creation during commit now dedupes within a company, so a row
+  that lists the same founder twice no longer violates the `uq_company_person`
+  constraint and aborts the whole import.
+- Uncommitted import batches are discarded when the Import Manager page loads
+  (`DELETE /api/imports/uncommitted`), so forgotten staging data (batch + preview
+  rows) does not accumulate. Committed and partially-committed batches are kept.
+- The company list endpoint (`GET /api/companies`) accepts a `q` parameter that
+  filters by name, domain, or website (case-insensitive); the companies page uses
+  it for search and loads results via infinite scroll instead of a fixed page.
+- Company search is now hybrid, merged in priority order: (1) exact/substring
+  matches on name/domain/website (ILIKE), (2) full-text matches on
+  name/description/thesis notes (tsvector) so query words in the description match
+  even when the name doesn't (e.g. "dog" finds a company described as dog
+  training), and (3) semantically similar companies via pgvector, bounded by
+  `SEARCH_SEMANTIC_LIMIT` and `SEARCH_SEMANTIC_THRESHOLD` (default 0.3). Company
+  embeddings are generated on create/update and on import commit (background
+  Celery jobs), and existing companies were backfilled. The query is embedded
+  in-process at request time; if embeddings are unavailable, search degrades to
+  exact + full-text matching.
 
 ### Glossary and Acronyms
 
@@ -92,10 +136,11 @@ Frontend implementation begins after backend contracts are stable:
 
 ### Definition of MVP
 
-The v1 MVP is an internal backend-first CRM that can support 1829 Ventures'
-core company, founder, pipeline, diligence, import, document, task, analytics,
-and AI-agent workflows through stable API contracts. The frontend is planned but
-not yet implemented.
+The v1 MVP is an internal CRM that supports 1829 Ventures' core company,
+founder, pipeline, diligence, import, document, task, analytics, portfolio, and
+AI-agent workflows through a FastAPI backend and React/Vite frontend. The
+backend remains the source of truth for business rules, workflow transitions,
+audit, provenance, and authorization policy.
 
 MVP capabilities:
 
@@ -110,15 +155,22 @@ MVP capabilities:
 - Separate relationship and investment pipeline states.
 - Review-needed triage into start-review, monitor, or pass.
 - Deal diligence checklist and screening rubric scoring.
-- Dealroom CSV upload, parsing, preview, dedupe, conflict review, and partial
-  commit.
+- Dealroom CSV/Excel upload, parsing, preview, dedupe, conflict review, and
+  partial commit, plus a downloadable column template. Dealroom column names are
+  centralized in a single registry (`app/integrations/dealroom_columns.py`) so
+  export schema changes are a one-line edit.
 - Document metadata and S3-compatible storage boundary.
 - Tasks, assignments, reminders, notifications, and daily digest jobs.
-- Full-text and semantic search infrastructure.
+- Full-text and semantic search infrastructure, with hybrid (exact + vector)
+  company search exposed through the company list endpoint.
 - Analytics APIs for pipeline, portfolio, source, sector, interaction cadence,
   thesis fit, and agent activity.
-- Ritchie-ready authentication and data surfaces, with full Ritchie tool
-  execution still pending.
+- Gmail forwarded-email ingestion plumbing and AI-assisted fuzzy company
+  matching.
+- Ritchie authentication, policy, event logging, typed tool surfaces, and
+  frontend policy/activity views.
+- React/Vite frontend for login, dashboard, companies, people, pipeline, tasks,
+  imports, portfolio, Ritchie, detail pages, and rubric editing.
 
 ### MVP Features
 
@@ -132,16 +184,18 @@ MVP capabilities:
 - Search and analytics.
 - Audit and governance foundations.
 - Worker-based background processing.
+- Frontend app shell and CRM workflow UI.
 
 ### Enhancements Planned Beyond Current Implementation
 
-- Gmail forwarded-email ingestion.
-- CRM-side Ritchie tools, policy gate, MCP endpoint, context retrieval, event
-  fanout, idempotency, and AI audit.
-- Backend hardening pass after Ritchie and Gmail are implemented.
-- React/Vite frontend app shell and workflows.
-- Generated frontend domain types from FastAPI OpenAPI.
+- Deeper Gmail review UI for unmatched/parse-failed forwarded messages.
+- Full CRM MCP Streamable HTTP server for kernelbot/Ritchie, if separate from
+  the current `/agent` API surfaces.
+- More complete Ritchie context retrieval, event fanout, and operational
+  analytics.
 - Production deployment hardening.
+- Invite-gated access and stricter role-specific permissions after v1.
+- In-app notification bell and richer notification feed.
 
 ## Application Domain
 
@@ -202,7 +256,7 @@ The intended runtime architecture is a three-tier web architecture:
 ```mermaid
 flowchart LR
     subgraph Presentation["Presentation Tier"]
-        FE["React/Vite frontend (planned)"]
+        FE["React/Vite frontend"]
     end
 
     subgraph Application["Application Tier"]
@@ -217,7 +271,7 @@ flowchart LR
         PG["Postgres + PostGIS + pgvector"]
         Redis["Redis"]
         S3["MinIO/S3-compatible object storage"]
-        External["Google OAuth, SendGrid, Dealroom CSV, kernelbot/Ritchie"]
+        External["Google OAuth, SendGrid, Dealroom CSV/Excel, kernelbot/Ritchie"]
     end
 
     FE --> API
@@ -244,18 +298,27 @@ The backend is intentionally layered:
 
 ### Overview of User Interface
 
-No frontend has been implemented yet. The planned frontend is a React/Vite
-TypeScript single-page application with:
+The frontend is implemented as a React/Vite TypeScript single-page application.
+It uses React Router for route navigation, TanStack Query for server state,
+Tailwind CSS for styling, lucide-react icons, and generated OpenAPI domain types
+from `frontend/src/types/api.ts`.
 
-- App shell and sidebar.
-- Google OAuth/session handling.
-- Company-centered workspace.
-- Company, people, deal, diligence, document, task, import, analytics, and
-  Ritchie views.
-- TanStack Query API integration.
-- Generated OpenAPI domain types.
+Implemented UI capabilities:
 
-Planned high-level navigation:
+- Google OAuth entry screen and protected app routes.
+- Responsive app shell with desktop sidebar and mobile horizontal navigation.
+- Dashboard with pipeline summary.
+- Company list/detail, people list/detail, pipeline board, task list, import
+  manager, portfolio dashboard, and Ritchie policy/activity pages.
+- Company list with debounced hybrid search and infinite scroll over all records.
+- Import manager that accepts CSV/Excel, downloads the column template, and
+  discards uncommitted batches on page load.
+- In-page screening rubric editor for the active deal.
+- Loading, error, and empty states through shared UI patterns.
+- API clients under `frontend/src/api/` and shared fetch client under
+  `frontend/src/lib/api.ts`.
+
+High-level navigation:
 
 ```text
 Login -> App Shell
@@ -271,9 +334,7 @@ Login -> App Shell
   -> Deal Pipeline
   -> Imports
   -> Tasks
-  -> Documents
   -> Portfolio
-  -> Analytics
   -> Ritchie/Agent Activity
 ```
 
@@ -282,30 +343,31 @@ TypeScript types from FastAPI OpenAPI using `openapi-typescript`.
 
 ### Presentation Tier
 
-The presentation tier is planned but not implemented. It will be responsible for
-user interaction, route navigation, data fetching, form validation, and rendering
-CRM workflows. It should not encode backend business rules that belong in
-services.
+The presentation tier is implemented in `frontend/`. It is responsible for user
+interaction, route navigation, data fetching, form controls, and rendering CRM
+workflows. It does not own backend business rules such as triage transitions,
+authorization policy, import dedupe, or audit behavior.
 
-Planned frontend technologies:
+Frontend technologies:
 
 - React.
 - Vite.
 - TypeScript.
 - React Router.
 - TanStack Query.
-- shadcn/ui.
 - Tailwind CSS.
-- React Hook Form and Zod for form validation.
+- lucide-react icons.
+- zod is available for validation needs.
 - OpenAPI-generated domain types.
 
-Expected component categories:
+Implemented component categories:
 
 - Layout components: app shell, sidebar, top nav, protected route wrapper.
-- Data components: tables, timelines, detail panels, filter controls.
-- Workflow components: triage actions, rubric editor, import preview, task
-  reassignment, document upload.
-- API hooks: query/mutation wrappers around generated request/response types.
+- UI primitives: button, card, input, badge, state notice.
+- Domain components: rubric editor, Ritchie audit log, Ritchie policy panel.
+- Pages: dashboard, login, companies, company detail, people, contact detail,
+  pipeline, tasks, imports, portfolio, Ritchie, and not-found placeholder.
+- API hooks/clients: query/mutation wrappers around typed API requests.
 
 ### Application Tier
 
@@ -336,21 +398,22 @@ Primary routers currently registered in `backend/app/api/router.py`:
 - `documents`
 - `tasks`
 - `analytics`
-
-Pending routers:
-
-- `email` for Gmail ingestion.
-- `agent` for Ritchie.
+- `agent`
+- `email`
 
 Representative API responsibilities:
 
 - Authentication and current-user lookup.
 - CRUD and archive endpoints for CRM entities.
+- Company list with `q` hybrid search (exact + semantic) and offset pagination.
 - Pipeline actions and diligence/rubric operations.
-- Dealroom upload/preview/commit.
+- Dealroom CSV/Excel upload/preview/commit, column-template download, and
+  discard of uncommitted batches.
 - Task assignment/completion.
 - Document metadata and upload URL workflows.
 - Analytics and search-facing outputs.
+- Ritchie agent policy, event, and typed tool endpoints.
+- Gmail ingestion endpoints for forwarded-email capture and matching.
 
 #### Service Layer
 
@@ -362,7 +425,8 @@ Implemented service modules:
   auth.
 - `permission_service.py`: v1 permission guard.
 - `audit_service.py`: audit log creation and actor context helpers.
-- `company_service.py`: company CRUD, archive, completeness.
+- `company_service.py`: company CRUD, archive, completeness, hybrid
+  exact+semantic company search, and background embedding refresh on write.
 - `people_service.py`: people, contacts, affiliations.
 - `interaction_service.py`: interactions.
 - `investment_service.py`: funds, investments, portfolio metrics.
@@ -370,18 +434,20 @@ Implemented service modules:
 - `deal_service.py`: deal CRUD.
 - `pipeline_service.py`: review-needed triage and status transitions.
 - `diligence_service.py`: rubric and checklist logic.
-- `dealroom_import_service.py`: import preview and commit.
+- `dealroom_import_service.py`: CSV/Excel import preview, commit, uncommitted-batch
+  cleanup, and embedding enqueue for committed companies.
 - `task_service.py`: task creation, assignment, reassignment, completion.
 - `notification_service.py`: notification records, SendGrid dispatch boundary,
   digest selection.
-- `search_service.py`: keyword and semantic search.
+- `search_service.py`: keyword (full-text) and semantic (pgvector) search,
+  including company-only nearest-neighbor matching for the company search box.
 - `analytics_service.py`: analytics aggregation API.
-
-Pending service modules:
-
-- `gmail_ingestion_service.py`.
-- `agent_service.py`.
-- `agent_policy_service.py`.
+- `gmail_ingestion_service.py`: forwarded-email ingestion and interaction
+  creation, including deterministic matching and AI-assisted fuzzy company
+  suggestions through interaction repository helpers.
+- `agent_service.py`: Ritchie tool execution, policy checks, idempotency, and
+  event logging.
+- `agent_policy_service.py`: runtime binary authorization policy.
 
 #### Repository Layer
 
@@ -403,10 +469,8 @@ Implemented repositories:
 - `notifications.py`
 - `analytics.py`
 
-Pending repositories:
-
-- `agent.py`.
-- Gmail may extend `interactions.py` or add email-specific helpers if needed.
+Agent and Gmail workflows reuse existing entity repositories and dedicated
+agent/import/event models where appropriate.
 
 #### Worker Layer
 
@@ -417,9 +481,6 @@ Celery workers process asynchronous jobs. Current job modules registered in
 - `notification_jobs`
 - `embedding_jobs`
 - `analytics_jobs`
-
-Pending workers:
-
 - `gmail_jobs`
 - `agent_jobs`
 
@@ -432,16 +493,20 @@ Integration adapters wrap external systems and keep services testable.
 Implemented integrations:
 
 - `google_oauth.py`: Google OAuth via Authlib.
-- `dealroom_csv.py`: Dealroom CSV parsing.
+- `dealroom_columns.py`: canonical Dealroom export column registry — single
+  source of truth for column names, the full template column set, accepted upload
+  extensions, and header markers.
+- `dealroom_csv.py`: Dealroom CSV/Excel parsing (dispatches on file extension;
+  Excel via `openpyxl`), template generation, and field normalization. References
+  column names from `dealroom_columns.py` so schema changes are a one-line edit.
 - `storage.py`: S3-compatible storage protocol.
 - `minio_storage.py`: local MinIO adapter.
 - `sendgrid.py`: SendGrid email adapter.
 - `embeddings.py`: lazy sentence-transformer embedding wrapper.
+- `ritchie_client.py`: kernelbot/Ritchie event fanout boundary.
 
-Pending integrations:
-
-- `ritchie_client.py` for kernelbot/Ritchie event fanout.
-- Gmail notification ingestion is handled by API/service logic, not Gmail IMAP.
+Gmail notification ingestion is handled by CRM API/service/worker logic on the
+CRM side; kernelbot remains the external watcher for Ritchie's inbox.
 
 ### Data Tier
 
@@ -517,7 +582,9 @@ sequenceDiagram
     UserRepo->>Postgres: SELECT/INSERT/UPDATE users
     Postgres-->>UserRepo: User
     AuthService-->>AuthRoutes: JWT/session result
-    AuthRoutes-->>Browser: Set httpOnly session cookie
+    AuthRoutes-->>Browser: Set httpOnly cookie and redirect to FRONTEND_URL
+    Browser->>AuthRoutes: GET /api/auth/me through Vite proxy
+    AuthRoutes-->>Browser: Current user JSON
 ```
 
 #### Dealroom Import Preview And Commit
@@ -527,12 +594,12 @@ sequenceDiagram
     participant User
     participant ImportsAPI as Imports API
     participant ImportService
-    participant CSV as Dealroom CSV Parser
+    participant CSV as Dealroom CSV/Excel Parser
     participant ImportRepo
     participant CompanyRepo
     participant Postgres
 
-    User->>ImportsAPI: POST /api/imports/dealroom (CSV)
+    User->>ImportsAPI: POST /api/imports/dealroom (CSV or Excel)
     ImportsAPI->>ImportService: create_preview(file)
     ImportService->>CSV: parse rows, headers, metadata
     CSV-->>ImportService: normalized rows
@@ -726,62 +793,104 @@ Write governance rules:
 
 ## Current Technical Debt And Risks
 
-### Alembic Multiple Heads
+### OAuth Provider Configuration
 
-Agents 07 and 08 added migrations in parallel, so Alembic currently has two
-heads:
+Local Google OAuth requires the Google Cloud OAuth client to include this exact
+authorized redirect URI:
 
 ```text
-7a8f1b2c3d4e
-8f3c2b71e4a9
+http://localhost:8000/api/auth/callback
 ```
 
-This should be fixed before deployment or Agent 11 hardening by adding an
-Alembic merge migration or linearizing the migration chain.
+If the Google Cloud client is not configured this way, login fails with
+`redirect_uri_mismatch`. The backend redirects successful callbacks to
+`FRONTEND_URL`, which defaults to `http://localhost:5173`.
 
-### Frontend Not Yet Implemented
+### Local Database State
 
-There is currently no `frontend/` directory. Any UI-related descriptions in this
-document are planned architecture, not implemented behavior.
+A local development DB can become inconsistent if Alembic is stamped to a
+revision before the tables exist (for example, running `alembic stamp head` on an
+empty schema, or a manual recovery gone wrong). In that state `alembic upgrade
+head` is a no-op and the app boots against an empty schema, so every query fails
+with `relation "..." does not exist`.
 
-### Gmail And Ritchie Pending
+The API startup command and the `make migrate` target both run a migration guard
+(`scripts/check_migration_state.py`) before `alembic upgrade head`. The guard
+detects the "stamped but core tables missing" mismatch (it checks for the
+`users` table) and clears the stale stamp so the upgrade rebuilds the full
+schema. It is a no-op for a fresh DB and for a healthy DB, and it never touches a
+database that has real tables, so it cannot drop data.
 
-Gmail ingestion and the full Ritchie integration are not implemented yet. Models
-and supporting services exist, but the actual route/service/worker flows remain
-future work.
+Because the guard runs at container start (not on uvicorn `--reload`), recovering
+a database that was wiped while the container is already running requires a
+restart (`docker compose restart api`) or `make migrate`. The manual recovery
+path remains:
 
-### README Drift
+```bash
+docker compose exec api alembic stamp base
+docker compose exec api alembic upgrade head
+```
 
-The README still contains some older planning phrasing, including Ritchie
-"approval-required proposals." The current plan is strict binary
-authorized/blocked policy with no proposal/approval workflow.
+Use `stamp base` (not `stamp head`) for manual recovery; `stamp head` on an empty
+schema is what produces the broken state in the first place. These resets are
+only appropriate for disposable local databases.
+
+### Production Deployment
+
+`docker-compose.prod.yml` and `nginx/nginx.conf` are stubs for a later production
+phase. v1.1 local development runs backend services through Docker Compose and
+the frontend through Vite.
+
+### Frontend Depth
+
+The frontend now covers the core CRM workflows, imports, Ritchie, and portfolio
+surfaces. Some deeper product flows remain intentionally thin, including richer
+unmatched Gmail review, notification feed/bell, advanced analytics dashboards,
+and full document upload/download UX.
+
+### Ritchie MCP Completeness
+
+The current CRM contains `/agent` API surfaces, policy management, activity
+logging, typed tool execution foundations, and frontend policy/activity views.
+The full kernelbot MCP Streamable HTTP integration should be verified end to end
+before production use.
 
 ## Testing And Verification
 
 Backend verification commands:
 
 ```bash
-cd backend
-.venv/bin/ruff check .
-.venv/bin/ruff format --check app tests scripts
-DEBUG=false .venv/bin/mypy
-DEBUG=false .venv/bin/python -m pytest -q
+make lint
+make typecheck
+make test
 ```
 
-Most recent integrated results:
+Frontend verification commands:
 
-```text
-ruff check: passed
-ruff format --check: passed
-mypy: passed
-full pytest: 62 passed
+```bash
+make frontend-lint
+make frontend-typecheck
+make frontend-test
+make frontend-build
 ```
 
-Operational caveat:
+Combined commands:
 
-```text
-Use DEBUG=false in local commands if the shell has DEBUG=release.
+```bash
+make backend-check
+make frontend-check
 ```
+
+Integration tests run against a dedicated `<db>_test` database (auto-created,
+e.g. `crm_test`), never the application database, because their fixtures drop and
+recreate the whole schema. Local dev data is therefore safe from the test suite.
+
+Recent targeted verification after auth/config changes:
+
+- `ruff check app/api/routes/auth.py app/core/config.py`: passed.
+- `mypy app/api/routes/auth.py app/core/config.py`: passed.
+- `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`: passed
+  after the frontend polish merge.
 
 ## Deployment And Runtime Environment
 
@@ -792,24 +901,41 @@ Local development services:
 - MinIO.
 - FastAPI API.
 - Celery worker.
+- React/Vite frontend.
 
-Docker Compose starts supporting services:
+Primary local admin path:
 
 ```bash
-docker compose up -d postgres redis minio
+make setup
+make up-build
+make migrate
+make frontend-dev
 ```
+
+Primary developer path once setup is complete:
+
+```bash
+make dev
+```
+
+Key local URLs:
+
+- Frontend: `http://localhost:5173`
+- API: `http://localhost:8000`
+- API docs: `http://localhost:8000/api/docs`
+- Health: `http://localhost:8000/api/health`
+- MinIO console: `http://localhost:9001`
 
 Postgres image is built from `docker/postgres/Dockerfile` to include pgvector.
 
 ## Future Implementation Plan
 
-1. Fix Alembic multiple heads.
-2. Agent 09: Gmail ingestion.
-3. Agent 10: Ritchie agent integration.
-4. Agent 11: backend review and hardening.
-5. Agent 20: frontend foundation.
-6. Agents 21 and 22: frontend CRM workflows and imports/agent/portfolio.
-7. Agent 23: frontend polish.
-
-Frontend work should begin only after backend API contracts are stable or a
-mocked contract is deliberately documented.
+1. Complete end-to-end validation of Gmail ingestion from kernelbot/Ritchie inbox
+   through CRM interaction creation and unmatched review handling.
+2. Verify and harden the Ritchie MCP/agent integration with kernelbot in a full
+   local two-repo run.
+3. Expand frontend workflows for unmatched Gmail review, richer company audit
+   history, document upload/download, and notification feed.
+4. Add invite-gated access and stricter role-specific permissions when needed.
+5. Harden production deployment: nginx, TLS, persistent object storage,
+   production Compose/Kubernetes equivalent, backups, and monitoring.

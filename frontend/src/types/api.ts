@@ -650,6 +650,46 @@ export interface paths {
         patch: operations["update_deal_status_api_deal_statuses__status_id__patch"];
         trace?: never;
     };
+    "/api/imports/dealroom/template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Dealroom Template
+         * @description Download the canonical Dealroom column template (CSV, header row only).
+         */
+        get: operations["download_dealroom_template_api_imports_dealroom_template_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/imports/uncommitted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Discard Uncommitted Imports
+         * @description Erase staged import batches that were never committed (called on page load).
+         */
+        delete: operations["discard_uncommitted_imports_api_imports_uncommitted_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/imports/dealroom": {
         parameters: {
             query?: never;
@@ -659,8 +699,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Upload Dealroom Csv */
-        post: operations["upload_dealroom_csv_api_imports_dealroom_post"];
+        /** Upload Dealroom File */
+        post: operations["upload_dealroom_file_api_imports_dealroom_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1439,8 +1479,8 @@ export interface components {
             /** Updated By */
             updated_by?: string | null;
         };
-        /** Body_upload_dealroom_csv_api_imports_dealroom_post */
-        Body_upload_dealroom_csv_api_imports_dealroom_post: {
+        /** Body_upload_dealroom_file_api_imports_dealroom_post */
+        Body_upload_dealroom_file_api_imports_dealroom_post: {
             /** File */
             file: string;
         };
@@ -2435,6 +2475,17 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** PaginatedResponse[ImportRowRead] */
+        PaginatedResponse_ImportRowRead_: {
+            /** Items */
+            items: components["schemas"]["ImportRowRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** PaginatedResponse[InteractionRead] */
         PaginatedResponse_InteractionRead_: {
             /** Items */
@@ -3182,7 +3233,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserRead"];
+                    "application/json": unknown;
                 };
             };
         };
@@ -3387,6 +3438,8 @@ export interface operations {
                 limit?: number;
                 offset?: number;
                 include_archived?: boolean;
+                /** @description Search by name, domain, or website */
+                q?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -4784,7 +4837,75 @@ export interface operations {
             };
         };
     };
-    upload_dealroom_csv_api_imports_dealroom_post: {
+    download_dealroom_template_api_imports_dealroom_template_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_uncommitted_imports_api_imports_uncommitted_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: number;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_dealroom_file_api_imports_dealroom_post: {
         parameters: {
             query?: never;
             header?: {
@@ -4797,7 +4918,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "multipart/form-data": components["schemas"]["Body_upload_dealroom_csv_api_imports_dealroom_post"];
+                "multipart/form-data": components["schemas"]["Body_upload_dealroom_file_api_imports_dealroom_post"];
             };
         };
         responses: {
@@ -4877,7 +4998,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ImportRowRead"][];
+                    "application/json": components["schemas"]["PaginatedResponse_ImportRowRead_"];
                 };
             };
             /** @description Validation Error */

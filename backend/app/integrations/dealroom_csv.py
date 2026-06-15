@@ -1,22 +1,36 @@
-"""Dealroom CSV parsing and normalization.
+"""Dealroom CSV/Excel parsing and normalization.
 
 Dealroom exports include metadata rows before the real header, then store many
-one-to-many values as semicolon-delimited arrays inside individual cells.
+one-to-many values as semicolon-delimited arrays inside individual cells. Exports
+arrive as CSV or modern Excel (.xlsx/.xlsm); both are normalized into the same
+``DealroomParseResult`` here.
+
+Column names are not hard-coded in this module — they live in
+``app.integrations.dealroom_columns`` (the single source of truth), so a Dealroom
+header rename is a one-line edit there, not a change to parsing logic.
 """
 
 from __future__ import annotations
 
 import csv
+import datetime as dt
 import io
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
+from pathlib import PurePosixPath
+from typing import Any
 from urllib.parse import urlparse
 
 from app.core.constants import DEFAULT_SECTOR
+from app.integrations.dealroom_columns import (
+    HEADER_MARKERS,
+    SUPPORTED_UPLOAD_EXTENSIONS,
+    TEMPLATE_COLUMNS,
+    DealroomColumn,
+)
 
-HEADER_MARKERS = ("ID", "Name", "Dealroom URL")
 MISSING_VALUES = {"", "n/a", "na", "null", "none", "-"}
 
 
@@ -73,11 +87,49 @@ class DealroomParseResult:
     rows: list[DealroomParsedRow]
 
 
+class UnsupportedDealroomFile(ValueError):
+    """Raised when an uploaded file is not a supported Dealroom export format."""
+
+
+def parse_dealroom_file(content: bytes, filename: str | None) -> DealroomParseResult:
+    """Parse a Dealroom export (CSV or Excel) into normalized rows.
+
+    Dispatches on the file extension. Both formats are reduced to a grid of string
+    cells (``list[list[str]]``) and then run through the same parsing core, so the
+    metadata-row skipping, header detection, and field mapping behave identically.
+    """
+    extension = _extension(filename)
+    if extension in {".xlsx", ".xlsm"}:
+        raw_rows = _read_excel_rows(content)
+    elif extension == ".csv":
+        raw_rows = _read_csv_rows(content)
+    else:
+        supported = ", ".join(SUPPORTED_UPLOAD_EXTENSIONS)
+        raise UnsupportedDealroomFile(
+            f"Unsupported file type '{extension or filename}'. Supported formats: {supported}."
+        )
+    return _build_result(raw_rows)
+
+
 def parse_dealroom_csv(content: bytes | str) -> DealroomParseResult:
     """Parse a Dealroom CSV export into normalized rows."""
-    text = content.decode("utf-8-sig") if isinstance(content, bytes) else content
-    reader = csv.reader(io.StringIO(text))
-    raw_rows = list(reader)
+    return _build_result(_read_csv_rows(content))
+
+
+def build_template_csv() -> str:
+    """Render the canonical Dealroom column template as CSV text.
+
+    Produces a header-only CSV listing every column from the most recent export
+    template, so the team can see/share the exact expected column names. The
+    output re-imports cleanly (header detection finds the row; there are no data
+    rows). Columns come from the registry, so the template tracks schema edits.
+    """
+    buffer = io.StringIO()
+    csv.writer(buffer).writerow(TEMPLATE_COLUMNS)
+    return buffer.getvalue()
+
+
+def _build_result(raw_rows: list[list[str]]) -> DealroomParseResult:
     header_index = _find_header_index(raw_rows)
     headers = [header.strip() for header in raw_rows[header_index]]
 
@@ -94,6 +146,54 @@ def parse_dealroom_csv(content: bytes | str) -> DealroomParseResult:
         headers=headers,
         rows=parsed_rows,
     )
+
+
+def _extension(filename: str | None) -> str:
+    if not filename:
+        return ""
+    return PurePosixPath(filename).suffix.lower()
+
+
+def _read_csv_rows(content: bytes | str) -> list[list[str]]:
+    text = content.decode("utf-8-sig") if isinstance(content, bytes) else content
+    return list(csv.reader(io.StringIO(text)))
+
+
+def _read_excel_rows(content: bytes) -> list[list[str]]:
+    try:
+        from openpyxl import load_workbook
+    except ImportError as exc:  # pragma: no cover - dependency is declared
+        raise UnsupportedDealroomFile(
+            "Excel support requires the 'openpyxl' package to be installed."
+        ) from exc
+
+    workbook = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    try:
+        worksheet = workbook.active
+        if worksheet is None:
+            return []
+        return [
+            [_cell_to_str(cell) for cell in row] for row in worksheet.iter_rows(values_only=True)
+        ]
+    finally:
+        workbook.close()
+
+
+def _cell_to_str(value: Any) -> str:
+    """Render an Excel cell as the string a CSV cell would have held."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    if isinstance(value, float):
+        # Excel stores all numbers as floats; render integer-valued ones without a
+        # trailing ".0" so IDs and years survive (e.g. 4936908.0 -> "4936908").
+        return str(int(value)) if value.is_integer() else repr(value)
+    if isinstance(value, dt.datetime):
+        return value.date().isoformat() if value.time() == dt.time() else value.isoformat()
+    if isinstance(value, dt.date):
+        return value.isoformat()
+    return str(value)
 
 
 def split_semicolon(value: str | None) -> list[str | None]:
@@ -190,43 +290,47 @@ def _row_to_dict(headers: list[str], row: list[str]) -> dict[str, str]:
 
 
 def _parse_row(row_number: int, raw: dict[str, str]) -> DealroomParsedRow:
-    industries = _clean_list(split_semicolon(raw.get("Industries")))
-    sub_industries = _clean_list(split_semicolon(raw.get("Sub industries")))
+    industries = _clean_list(split_semicolon(raw.get(DealroomColumn.INDUSTRIES)))
+    sub_industries = _clean_list(split_semicolon(raw.get(DealroomColumn.SUB_INDUSTRIES)))
     sector, sector_warnings = map_dealroom_sector(industries, sub_industries)
-    website = _clean_value(raw.get("Website"))
+    website = _clean_value(raw.get(DealroomColumn.WEBSITE))
+    tagline = _clean_value(raw.get(DealroomColumn.TAGLINE))
     return DealroomParsedRow(
         row_number=row_number,
         raw=raw,
-        dealroom_id=_clean_value(raw.get("ID")),
-        name=_clean_value(raw.get("Name")),
-        dealroom_url=_clean_value(raw.get("Dealroom URL")),
+        dealroom_id=_clean_value(raw.get(DealroomColumn.ID)),
+        name=_clean_value(raw.get(DealroomColumn.NAME)),
+        dealroom_url=_clean_value(raw.get(DealroomColumn.DEALROOM_URL)),
         website=website,
         domain=normalize_domain(website),
-        tagline=_clean_value(raw.get("Tagline")),
-        description=_clean_value(raw.get("Long description")) or _clean_value(raw.get("Tagline")),
-        stage=_clean_value(raw.get("Growth stage")) or _clean_value(raw.get("Last round")),
+        tagline=tagline,
+        description=_clean_value(raw.get(DealroomColumn.LONG_DESCRIPTION)) or tagline,
+        stage=_clean_value(raw.get(DealroomColumn.GROWTH_STAGE))
+        or _clean_value(raw.get(DealroomColumn.LAST_ROUND)),
         sector=sector,
         sector_warnings=sector_warnings,
         industries=industries,
         sub_industries=sub_industries,
-        tags=_clean_list(split_semicolon(raw.get("All tags") or raw.get("Tags"))),
-        city=_clean_value(raw.get("HQ city")),
-        state=_clean_value(raw.get("HQ state")),
-        country=_clean_value(raw.get("HQ country")),
-        latitude=_decimal_or_none(raw.get("Latitude")),
-        longitude=_decimal_or_none(raw.get("Longitude")),
+        tags=_clean_list(
+            split_semicolon(raw.get(DealroomColumn.ALL_TAGS) or raw.get(DealroomColumn.TAGS))
+        ),
+        city=_clean_value(raw.get(DealroomColumn.HQ_CITY)),
+        state=_clean_value(raw.get(DealroomColumn.HQ_STATE)),
+        country=_clean_value(raw.get(DealroomColumn.HQ_COUNTRY)),
+        latitude=_decimal_or_none(raw.get(DealroomColumn.LATITUDE)),
+        longitude=_decimal_or_none(raw.get(DealroomColumn.LONGITUDE)),
         founders=_parse_founders(raw),
         funding_rounds=_parse_funding_rounds(raw),
     )
 
 
 def _parse_founders(raw: dict[str, str]) -> list[DealroomFounder]:
-    names = split_semicolon(raw.get("Founders"))
-    statuses = split_semicolon(raw.get("Founders statuses"))
-    genders = split_semicolon(raw.get("Founders genders"))
-    universities = split_semicolon(raw.get("Founders universities"))
-    linkedin_urls = split_semicolon(raw.get("Founders linkedin"))
-    backgrounds = split_semicolon(raw.get("Founders backgrounds"))
+    names = split_semicolon(raw.get(DealroomColumn.FOUNDERS))
+    statuses = split_semicolon(raw.get(DealroomColumn.FOUNDERS_STATUSES))
+    genders = split_semicolon(raw.get(DealroomColumn.FOUNDERS_GENDERS))
+    universities = split_semicolon(raw.get(DealroomColumn.FOUNDERS_UNIVERSITIES))
+    linkedin_urls = split_semicolon(raw.get(DealroomColumn.FOUNDERS_LINKEDIN))
+    backgrounds = split_semicolon(raw.get(DealroomColumn.FOUNDERS_BACKGROUNDS))
 
     founders: list[DealroomFounder] = []
     for index, name in enumerate(names):
@@ -246,11 +350,11 @@ def _parse_founders(raw: dict[str, str]) -> list[DealroomFounder]:
 
 
 def _parse_funding_rounds(raw: dict[str, str]) -> list[DealroomFundingRound]:
-    round_types = split_semicolon(raw.get("Each round type"))
-    amounts = split_semicolon(raw.get("Each round amount"))
-    currencies = split_semicolon(raw.get("Each round currency"))
-    dates = split_semicolon(raw.get("Each round date"))
-    investors = split_semicolon(raw.get("Each round investors"))
+    round_types = split_semicolon(raw.get(DealroomColumn.EACH_ROUND_TYPE))
+    amounts = split_semicolon(raw.get(DealroomColumn.EACH_ROUND_AMOUNT))
+    currencies = split_semicolon(raw.get(DealroomColumn.EACH_ROUND_CURRENCY))
+    dates = split_semicolon(raw.get(DealroomColumn.EACH_ROUND_DATE))
+    investors = split_semicolon(raw.get(DealroomColumn.EACH_ROUND_INVESTORS))
     count = max(len(round_types), len(amounts), len(currencies), len(dates), len(investors))
 
     rounds: list[DealroomFundingRound] = []

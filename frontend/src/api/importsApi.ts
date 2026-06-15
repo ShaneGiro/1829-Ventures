@@ -20,8 +20,11 @@ export function useImportRows(batchId: string | undefined, params?: { status?: s
   });
 }
 
-/** Upload a Dealroom CSV (multipart) to create a preview batch. */
-export function useUploadDealroomCsv() {
+/** Accepted Dealroom upload extensions (kept in sync with the backend registry). */
+export const DEALROOM_UPLOAD_ACCEPT = ".csv,.xlsx,.xlsm";
+
+/** Upload a Dealroom export (CSV or Excel, multipart) to create a preview batch. */
+export function useUploadDealroomFile() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (file: File): Promise<ImportBatch> => {
@@ -33,11 +36,46 @@ export function useUploadDealroomCsv() {
         credentials: "include",
         body: formData,
       });
-      if (!res.ok) throw new ApiError(res.status, `Upload failed: ${res.status}`);
+      if (!res.ok) {
+        const message = await res
+          .json()
+          .then((body: { message?: string }) => body.message)
+          .catch(() => undefined);
+        throw new ApiError(res.status, message ?? `Upload failed: ${res.status}`);
+      }
       return (await res.json()) as ImportBatch;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["imports"] }),
   });
+}
+
+/** Erase staged import batches that were never committed. Called on page load so
+ *  forgotten uploads don't accumulate in the database. */
+export async function discardUncommittedImports(): Promise<number> {
+  const res = await fetch(`${API_BASE}/imports/uncommitted`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new ApiError(res.status, `Discard failed: ${res.status}`);
+  const body = (await res.json()) as { deleted: number };
+  return body.deleted;
+}
+
+/** Download the canonical Dealroom column template (CSV, header row only). */
+export async function downloadDealroomTemplate(): Promise<void> {
+  const res = await fetch(`${API_BASE}/imports/dealroom/template`, {
+    credentials: "include",
+  });
+  if (!res.ok) throw new ApiError(res.status, `Template download failed: ${res.status}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "dealroom_import_template.csv";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
 
 export function useCommitImport(batchId: string) {

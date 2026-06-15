@@ -82,6 +82,10 @@ class Settings(BaseSettings):
     embedding_model_name: str = Field(default="sentence-transformers/all-MiniLM-L6-v2")
     embedding_enabled: bool = Field(default=True)
     embedding_batch_size: int = Field(default=32)
+    # Company search: cap and minimum cosine similarity for semantic (vector)
+    # matches appended after exact matches. Raising the threshold = stricter.
+    search_semantic_limit: int = Field(default=25)
+    search_semantic_threshold: float = Field(default=0.3)
 
     # ─── CORS ─────────────────────────────────────────────────────────────────
     cors_origins: str = Field(default="http://localhost:5173")

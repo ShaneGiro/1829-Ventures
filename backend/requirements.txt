@@ -62,6 +62,7 @@ mcp>=1.2.0                       # Anthropic MCP SDK — Streamable HTTP server 
 
 # ─── Utilities ────────────────────────────────────────────────────────────────
 python-dotenv>=1.0.1             # load .env files in local development
+openpyxl>=3.1.0                  # read Dealroom .xlsx/.xlsm exports (CSV needs no dep)
 
 
 # ─── Testing ──────────────────────────────────────────────────────────────────

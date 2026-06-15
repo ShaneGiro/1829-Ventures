@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type {
   Company,
@@ -9,11 +14,30 @@ import type {
 } from "@/api/types";
 
 const KEY = "companies";
+const PAGE_SIZE = 50;
 
 export function useCompanies(params?: { limit?: number; offset?: number; q?: string }) {
   return useQuery({
     queryKey: [KEY, params],
     queryFn: () => api.get<Page<Company>>("/companies", params),
+  });
+}
+
+/** Paginated company list with infinite scroll. Optionally filtered by `q`. */
+export function useInfiniteCompanies(q?: string) {
+  return useInfiniteQuery({
+    queryKey: [KEY, "infinite", q ?? ""],
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) =>
+      api.get<Page<Company>>("/companies", {
+        limit: PAGE_SIZE,
+        offset: pageParam,
+        q: q || undefined,
+      }),
+    getNextPageParam: (lastPage) => {
+      const loaded = lastPage.offset + lastPage.items.length;
+      return loaded < lastPage.total ? loaded : undefined;
+    },
   });
 }
 

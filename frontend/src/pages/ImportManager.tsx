@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  DEALROOM_UPLOAD_ACCEPT,
+  discardUncommittedImports,
+  downloadDealroomTemplate,
   useCommitImport,
   useImportBatch,
   useImportRows,
-  useUploadDealroomCsv,
+  useUploadDealroomFile,
 } from "@/api/importsApi";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,14 +22,26 @@ const ROW_STYLE: Record<string, string> = {
 
 export function ImportManager() {
   const [batchId, setBatchId] = useState<string | undefined>();
-  const upload = useUploadDealroomCsv();
+  const [templateError, setTemplateError] = useState(false);
+  const upload = useUploadDealroomFile();
   const { data: batch } = useImportBatch(batchId);
   const { data: rows } = useImportRows(batchId);
   const commit = useCommitImport(batchId ?? "");
 
+  // On page load/refresh, discard any uploaded-but-uncommitted batches so
+  // forgotten staging data doesn't pile up in the database.
+  useEffect(() => {
+    void discardUncommittedImports().catch(() => {});
+  }, []);
+
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) upload.mutate(file, { onSuccess: (b) => setBatchId(b.id) });
+  };
+
+  const onDownloadTemplate = () => {
+    setTemplateError(false);
+    downloadDealroomTemplate().catch(() => setTemplateError(true));
   };
 
   return (
@@ -34,13 +49,29 @@ export function ImportManager() {
       <h1 className="text-xl font-semibold">Dealroom imports</h1>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Upload CSV</CardTitle>
+        <CardHeader className="flex items-center justify-between">
+          <CardTitle>Upload export</CardTitle>
+          <Button size="sm" variant="outline" onClick={onDownloadTemplate}>
+            Download template
+          </Button>
         </CardHeader>
         <CardContent className="space-y-2">
-          <input type="file" accept=".csv" onChange={onFile} disabled={upload.isPending} />
+          <input
+            type="file"
+            accept={DEALROOM_UPLOAD_ACCEPT}
+            onChange={onFile}
+            disabled={upload.isPending}
+          />
+          <p className="text-xs text-muted-foreground">
+            Accepts a Dealroom CSV or Excel (.xlsx) export.
+          </p>
           {upload.isPending && <p className="text-sm text-muted-foreground">Uploading…</p>}
-          {upload.isError && <p className="text-sm text-red-700">Upload failed.</p>}
+          {upload.isError && (
+            <p className="text-sm text-red-700">
+              {upload.error instanceof Error ? upload.error.message : "Upload failed."}
+            </p>
+          )}
+          {templateError && <p className="text-sm text-red-700">Template download failed.</p>}
         </CardContent>
       </Card>
 
