@@ -4,12 +4,13 @@ import { useCompanies } from "@/api/companies";
 import { useDeals, useDealStatuses } from "@/api/deals";
 import type { Deal } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
+import { StateNotice } from "@/components/ui/state";
 
 const UNASSIGNED = "__unassigned__";
 
 export function PipelineBoard() {
   const { data: statuses } = useDealStatuses();
-  const { data: deals, isLoading } = useDeals({ limit: 200 });
+  const { data: deals, isLoading, isError } = useDeals({ limit: 200 });
   const { data: companies } = useCompanies({ limit: 200 });
 
   const companyName = useMemo(() => {
@@ -33,11 +34,17 @@ export function PipelineBoard() {
     return groups;
   }, [deals]);
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading pipeline…</p>;
-
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">Pipeline</h1>
+      {isLoading && <StateNotice title="Loading pipeline" />}
+      {isError && (
+        <StateNotice
+          title="Could not load pipeline"
+          description="Refresh the page or check the API connection."
+          variant="error"
+        />
+      )}
       <div className="flex gap-4 overflow-x-auto pb-4">
         {columns.map((col) => {
           const items = byStatus.get(col.id) ?? [];

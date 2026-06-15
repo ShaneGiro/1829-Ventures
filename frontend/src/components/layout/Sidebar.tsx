@@ -24,7 +24,7 @@ const NAV = [
 
 export function Sidebar() {
   return (
-    <aside className="flex w-56 flex-col border-r bg-muted/30 p-3">
+    <aside className="hidden w-56 shrink-0 flex-col border-r bg-muted/30 p-3 md:flex">
       <div className="px-2 py-3 text-lg font-semibold">1829 Ventures</div>
       <nav className="flex flex-col gap-1">
         {NAV.map(({ to, label, icon: Icon, end }) => (
@@ -41,11 +41,36 @@ export function Sidebar() {
               )
             }
           >
-            <Icon className="h-4 w-4" />
-            {label}
+            <Icon className="h-4 w-4 shrink-0" />
+            <span className="truncate">{label}</span>
           </NavLink>
         ))}
       </nav>
     </aside>
+  );
+}
+
+export function MobileNav() {
+  return (
+    <nav className="flex gap-1 overflow-x-auto border-b bg-background px-3 py-2 md:hidden">
+      {NAV.map(({ to, label, icon: Icon, end }) => (
+        <NavLink
+          key={to}
+          to={to}
+          end={end}
+          className={({ isActive }) =>
+            cn(
+              "inline-flex min-w-fit items-center gap-2 rounded-md px-3 py-2 text-xs font-medium",
+              isActive
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+            )
+          }
+        >
+          <Icon className="h-4 w-4 shrink-0" />
+          <span>{label}</span>
+        </NavLink>
+      ))}
+    </nav>
   );
 }

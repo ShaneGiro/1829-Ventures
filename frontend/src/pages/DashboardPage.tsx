@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { StateNotice } from "@/components/ui/state";
 import type { components } from "@/types/api";
 
 type PipelineSummary = components["schemas"]["PipelineSummary"];
@@ -13,10 +14,16 @@ export function DashboardPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">Dashboard</h1>
-      {isLoading && <p className="text-sm text-muted-foreground">Loading pipeline…</p>}
-      {isError && <p className="text-sm text-muted-foreground">Could not load analytics.</p>}
+      {isLoading && <StateNotice title="Loading pipeline" />}
+      {isError && (
+        <StateNotice
+          title="Could not load analytics"
+          description="Refresh the page or check that the backend is running."
+          variant="error"
+        />
+      )}
       {data && (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
           <StatCard label="Companies" value={data.total_companies} />
           <StatCard label="Deals" value={data.total_deals} />
         </div>

@@ -4,6 +4,7 @@ import type { RubricUpdate } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/input";
+import { StateNotice } from "@/components/ui/state";
 
 const GATES: { key: keyof RubricUpdate; label: string }[] = [
   { key: "gate_rit_connection", label: "RIT connection" },
@@ -76,7 +77,7 @@ export function RubricEditor({ dealId }: { dealId: string }) {
     setForm(next as RubricUpdate);
   }, [rubric]);
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading rubric…</p>;
+  if (isLoading) return <StateNotice title="Loading rubric" />;
 
   const setScore = (key: keyof RubricUpdate, value: number | null) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -85,9 +86,9 @@ export function RubricEditor({ dealId }: { dealId: string }) {
 
   return (
     <Card>
-      <CardHeader className="flex items-center justify-between">
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle>Screening rubric</CardTitle>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {rubric?.composite_score != null && (
             <span className="text-sm font-medium">Composite: {rubric.composite_score}/100</span>
           )}

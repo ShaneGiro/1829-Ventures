@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { StateNotice } from "@/components/ui/state";
 
 export function TaskList() {
-  const { data, isLoading } = useTasks({ limit: 50 });
+  const { data, isLoading, isError } = useTasks({ limit: 50 });
   const create = useCreateTask();
   const complete = useCompleteTask();
   const [title, setTitle] = useState("");
@@ -29,7 +30,7 @@ export function TaskList() {
           <CardTitle>New task</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={submit} className="flex gap-2">
+          <form onSubmit={submit} className="flex flex-col gap-2 sm:flex-row">
             <Input
               placeholder="Task title…"
               value={title}
@@ -42,14 +43,21 @@ export function TaskList() {
         </CardContent>
       </Card>
 
-      {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {isLoading && <StateNotice title="Loading tasks" />}
+      {isError && (
+        <StateNotice
+          title="Could not load tasks"
+          description="Refresh the page or check the API connection."
+          variant="error"
+        />
+      )}
       <div className="space-y-2">
         {data?.items.map((t) => (
           <div
             key={t.id}
-            className="flex items-center justify-between rounded-md border bg-background p-3 text-sm"
+            className="flex flex-col gap-3 rounded-md border bg-background p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
           >
-            <div>
+            <div className="min-w-0">
               <span className="font-medium">{t.title}</span>{" "}
               <Badge>{t.status}</Badge> <Badge>{t.priority}</Badge>
             </div>

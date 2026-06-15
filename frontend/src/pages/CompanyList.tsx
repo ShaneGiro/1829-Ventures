@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useCompanies } from "@/api/companies";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { StateNotice } from "@/components/ui/state";
 
 export function CompanyList() {
   const [q, setQ] = useState("");
@@ -10,20 +11,26 @@ export function CompanyList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-semibold">Companies</h1>
         <Input
           placeholder="Search…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          className="w-64"
+          className="w-full sm:w-64"
         />
       </div>
-      {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
-      {isError && <p className="text-sm text-muted-foreground">Could not load companies.</p>}
+      {isLoading && <StateNotice title="Loading companies" />}
+      {isError && (
+        <StateNotice
+          title="Could not load companies"
+          description="Refresh the page or check the API connection."
+          variant="error"
+        />
+      )}
       {data && (
-        <div className="overflow-hidden rounded-lg border">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="min-w-[720px] w-full text-sm">
             <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="px-4 py-2">Name</th>

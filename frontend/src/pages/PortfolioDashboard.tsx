@@ -1,5 +1,6 @@
 import { useFunds, usePortfolioSummary } from "@/api/portfolioApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StateNotice } from "@/components/ui/state";
 
 function fmt(value: string | number | null | undefined): string {
   if (value == null) return "—";
@@ -7,16 +8,23 @@ function fmt(value: string | number | null | undefined): string {
 }
 
 export function PortfolioDashboard() {
-  const { data: summary, isLoading } = usePortfolioSummary();
-  const { data: funds } = useFunds();
+  const { data: summary, isLoading, isError } = usePortfolioSummary();
+  const { data: funds, isError: fundsError } = useFunds();
 
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Portfolio</h1>
-      {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {isLoading && <StateNotice title="Loading portfolio" />}
+      {(isError || fundsError) && (
+        <StateNotice
+          title="Could not load portfolio"
+          description="Refresh the page or check the API connection."
+          variant="error"
+        />
+      )}
 
       {summary && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <Stat label="Investments" value={fmt(summary.total_investments)} />
           <Stat label="Invested" value={fmt(summary.total_invested_amount)} />
           <Stat label="Valuation mark" value={fmt(summary.total_valuation_mark)} />
@@ -26,7 +34,7 @@ export function PortfolioDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>By fund</CardTitle>
