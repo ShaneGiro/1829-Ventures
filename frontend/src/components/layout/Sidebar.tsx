@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Building2, LayoutDashboard, Users, Briefcase, Upload, Bot } from "lucide-react";
+import { Building2, LayoutDashboard, Users, Briefcase, Upload, Bot, CheckSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -7,6 +7,7 @@ const NAV = [
   { to: "/companies", label: "Companies", icon: Building2 },
   { to: "/people", label: "People", icon: Users },
   { to: "/deals", label: "Pipeline", icon: Briefcase },
+  { to: "/tasks", label: "Tasks", icon: CheckSquare },
   { to: "/imports", label: "Imports", icon: Upload },
   { to: "/ritchie", label: "Ritchie", icon: Bot },
 ];

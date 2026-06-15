@@ -4,6 +4,12 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { NotFoundPage, PlaceholderPage } from "@/pages/PlaceholderPage";
+import { CompanyList } from "@/pages/CompanyList";
+import { CompanyDetail } from "@/pages/CompanyDetail";
+import { PeopleList } from "@/pages/PeopleList";
+import { ContactDetail } from "@/pages/ContactDetail";
+import { PipelineBoard } from "@/pages/PipelineBoard";
+import { TaskList } from "@/pages/TaskList";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -16,9 +22,13 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <DashboardPage /> },
-      { path: "companies", element: <PlaceholderPage title="Companies" /> },
-      { path: "people", element: <PlaceholderPage title="People" /> },
-      { path: "deals", element: <PlaceholderPage title="Pipeline" /> },
+      { path: "companies", element: <CompanyList /> },
+      { path: "companies/:companyId", element: <CompanyDetail /> },
+      { path: "people", element: <PeopleList /> },
+      { path: "people/:personId", element: <ContactDetail /> },
+      { path: "deals", element: <PipelineBoard /> },
+      { path: "tasks", element: <TaskList /> },
+      // Imports and Ritchie are implemented by Agent 22.
       { path: "imports", element: <PlaceholderPage title="Imports" /> },
       { path: "ritchie", element: <PlaceholderPage title="Ritchie" /> },
     ],
