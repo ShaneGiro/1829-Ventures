@@ -24,6 +24,25 @@ export function useUpdateDeal(id: string) {
   });
 }
 
+/** Move a deal to a different pipeline stage. */
+export function useMoveDeal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, dealStatusId }: { id: string; dealStatusId: string }) =>
+      api.patch<Deal>(`/deals/${id}`, { deal_status_id: dealStatusId }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["deals"] }),
+  });
+}
+
+/** Soft-delete (archive) a deal, removing it from the pipeline. */
+export function useArchiveDeal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<Deal>(`/deals/${id}/archive`, {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["deals"] }),
+  });
+}
+
 export function useDealRubric(dealId: string | undefined) {
   return useQuery({
     queryKey: ["deals", dealId, "rubric"],
