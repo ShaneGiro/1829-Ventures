@@ -16,6 +16,15 @@ from app.schemas.task import TaskComplete, TaskCreate
 from app.services import notification_service, task_service
 
 
+def test_task_create_requires_person_or_company() -> None:
+    with pytest.raises(ValueError, match="person or a company"):
+        TaskCreate(title="Orphan task")
+
+    # Linking to either a person or a company is accepted.
+    assert TaskCreate(title="Company task", company_id=uuid.uuid4())
+    assert TaskCreate(title="Alumni task", person_id=uuid.uuid4())
+
+
 class FakeSession:
     def __init__(self) -> None:
         self.added: list[object] = []
@@ -67,7 +76,12 @@ async def test_task_create_notifies_assigned_owner(monkeypatch: pytest.MonkeyPat
 
     task = await task_service.create_task(
         session,
-        TaskCreate(title="Follow up", owner_id=owner.id, watcher_ids=[actor.id]),
+        TaskCreate(
+            title="Follow up",
+            owner_id=owner.id,
+            watcher_ids=[actor.id],
+            company_id=uuid.uuid4(),
+        ),
         actor,
     )
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import type { ReactNode } from "react";
 import { ArrowLeft, ExternalLink } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   useCompany,
   useCompanyDealroomData,
@@ -11,6 +11,8 @@ import { useDocuments } from "@/api/documents";
 import { useInteractions } from "@/api/interactions";
 import { useTasks } from "@/api/tasks";
 import { RubricEditor } from "@/components/company/RubricEditor";
+import { TaskCreateDialog } from "@/components/task/TaskCreateDialog";
+import { TaskItem } from "@/components/task/TaskItem";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,10 +52,17 @@ const SOCIAL_FIELDS = ["LinkedIn", "Twitter", "Facebook", "Google Play link", "i
 
 export function CompanyDetail() {
   const { companyId } = useParams<{ companyId: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  // Go back to wherever the user came from; fall back to the company list when
+  // this page was opened directly (no in-app history to return to).
+  const goBack = () => {
+    if (location.key === "default") navigate("/companies");
+    else navigate(-1);
+  };
   const { data: company, isLoading } = useCompany(companyId);
   const { data: dealroom } = useCompanyDealroomData(companyId);
   const { data: interactions } = useInteractions({ company_id: companyId, limit: 10 });
-  const { data: tasks } = useTasks({ company_id: companyId, limit: 10 });
   const { data: documents } = useDocuments({ company_id: companyId, limit: 10 });
   const updateCompany = useUpdateCompany(companyId ?? "");
 
@@ -69,13 +78,14 @@ export function CompanyDetail() {
 
   return (
     <div className="space-y-6">
-      <Link
-        to="/companies"
+      <button
+        type="button"
+        onClick={goBack}
         className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        Companies
-      </Link>
+        Back
+      </button>
 
       <CompanyHeader
         name={company.name}
@@ -198,6 +208,8 @@ export function CompanyDetail() {
             </CardContent>
           </Card>
 
+          <CompanyTasks companyId={company.id} />
+
           <CompanyNotes
             initialValue={company.thesis_notes ?? ""}
             onSave={(notes) => updateCompany.mutate({ thesis_notes: notes })}
@@ -218,23 +230,6 @@ export function CompanyDetail() {
                 ))
               ) : (
                 <p className="text-sm text-muted-foreground">No interactions yet.</p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Open tasks</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1">
-              {tasks?.items.length ? (
-                tasks.items.map((t) => (
-                  <div key={t.id} className="text-sm">
-                    {t.title} <Badge>{t.status}</Badge>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">No tasks.</p>
               )}
             </CardContent>
           </Card>
@@ -832,6 +827,34 @@ function RawDealroomFields({ raw }: { raw: Record<string, unknown> }) {
           <p className="text-sm text-muted-foreground">No Dealroom CSV payload is linked.</p>
         )}
       </CardContent>
+    </Card>
+  );
+}
+
+function CompanyTasks({ companyId }: { companyId: string }) {
+  const { data, isLoading, isError } = useTasks({ company_id: companyId, limit: 25 });
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <CardTitle>Tasks</CardTitle>
+        <Button size="sm" onClick={() => setDialogOpen(true)}>
+          Add task
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {isLoading && <p className="text-sm text-muted-foreground">Loading tasks…</p>}
+        {isError && <p className="text-sm text-destructive">Could not load tasks.</p>}
+        {data?.items.length
+          ? data.items.map((t) => <TaskItem key={t.id} task={t} />)
+          : !isLoading && <p className="text-sm text-muted-foreground">No tasks yet.</p>}
+      </CardContent>
+      <TaskCreateDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        defaultCompanyId={companyId}
+      />
     </Card>
   );
 }

@@ -198,6 +198,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/companies/dealroom-columns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Dealroom Columns */
+        get: operations["list_dealroom_columns_api_companies_dealroom_columns_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/companies/{company_id}/dealroom-data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Company Dealroom Data */
+        get: operations["get_company_dealroom_data_api_companies__company_id__dealroom_data_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/companies/{company_id}/rubric": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Company Rubric */
+        get: operations["get_company_rubric_api_companies__company_id__rubric_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Company Rubric */
+        patch: operations["update_company_rubric_api_companies__company_id__rubric_patch"];
+        trace?: never;
+    };
     "/api/companies/{company_id}": {
         parameters: {
             query?: never;
@@ -1484,6 +1536,16 @@ export interface components {
             /** File */
             file: string;
         };
+        /** ChecklistItem */
+        ChecklistItem: {
+            /** Text */
+            text: string;
+            /**
+             * Done
+             * @default false
+             */
+            done: boolean;
+        };
         /** CompanyCompleteness */
         CompanyCompleteness: {
             /** Company Id */
@@ -1587,6 +1649,33 @@ export interface components {
              * @default true
              */
             has_rit_nexus: boolean;
+        };
+        /** CompanyDealroomData */
+        CompanyDealroomData: {
+            /** Company Id */
+            company_id: string;
+            /** Import Row Id */
+            import_row_id?: string | null;
+            /** Batch Id */
+            batch_id?: string | null;
+            /** Row Number */
+            row_number?: number | null;
+            /** Status */
+            status?: string | null;
+            /**
+             * Raw
+             * @default {}
+             */
+            raw: {
+                [key: string]: unknown;
+            };
+            /**
+             * Normalized
+             * @default {}
+             */
+            normalized: {
+                [key: string]: unknown;
+            };
         };
         /** CompanyRead */
         CompanyRead: {
@@ -1834,6 +1923,16 @@ export interface components {
             thesis_fit_notes?: string | null;
             /** Decision Notes */
             decision_notes?: string | null;
+        };
+        /** DealroomColumnOption */
+        DealroomColumnOption: {
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "text" | "number" | "date" | "boolean";
         };
         /** DiligenceItemRead */
         DiligenceItemRead: {
@@ -2918,6 +3017,8 @@ export interface components {
             owner_id?: string | null;
             /** Watcher Ids */
             watcher_ids?: string[];
+            /** Checklist */
+            checklist?: components["schemas"]["ChecklistItem"][];
             /** Company Id */
             company_id?: string | null;
             /** Person Id */
@@ -2948,6 +3049,8 @@ export interface components {
             owner_id?: string | null;
             /** Watcher Ids */
             watcher_ids?: string[];
+            /** Checklist */
+            checklist?: components["schemas"]["ChecklistItem"][];
             /** Company Id */
             company_id?: string | null;
             /** Person Id */
@@ -3012,6 +3115,8 @@ export interface components {
             owner_id?: string | null;
             /** Watcher Ids */
             watcher_ids?: string[] | null;
+            /** Checklist */
+            checklist?: components["schemas"]["ChecklistItem"][] | null;
         };
         /** ThesisFitSummary */
         ThesisFitSummary: {
@@ -3437,9 +3542,31 @@ export interface operations {
             query?: {
                 limit?: number;
                 offset?: number;
-                include_archived?: boolean;
-                /** @description Search by name, domain, or website */
+                /** @description Search by name, domain, website, description */
                 q?: string | null;
+                sector?: string[] | null;
+                relationship_status?: string[] | null;
+                stage?: string[] | null;
+                country?: string[] | null;
+                state?: string[] | null;
+                city?: string[] | null;
+                source_system?: string[] | null;
+                has_rit_nexus?: boolean | null;
+                imported_unreviewed?: boolean | null;
+                has_website?: boolean | null;
+                min_completeness?: number | null;
+                max_completeness?: number | null;
+                created_after?: string | null;
+                created_before?: string | null;
+                updated_after?: string | null;
+                updated_before?: string | null;
+                /** @description Repeated typed Dealroom filters encoded as column<TAB>operator<TAB>value<TAB>value_to. */
+                dealroom_filter?: string[] | null;
+                /** @description Legacy single Dealroom CSV column filter. */
+                dealroom_column?: string | null;
+                /** @description Legacy case-insensitive substring Dealroom filter. */
+                dealroom_contains?: string | null;
+                include_archived?: boolean;
             };
             header?: {
                 authorization?: string | null;
@@ -3495,6 +3622,148 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CompanyRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_dealroom_columns_api_companies_dealroom_columns_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealroomColumnOption"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_company_dealroom_data_api_companies__company_id__dealroom_data_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                company_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanyDealroomData"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_company_rubric_api_companies__company_id__rubric_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                company_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RubricRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_company_rubric_api_companies__company_id__rubric_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                company_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RubricUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RubricRead"];
                 };
             };
             /** @description Validation Error */

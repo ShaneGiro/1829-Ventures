@@ -58,6 +58,8 @@ class Task(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     completion_history: Mapped[list[Any]] = mapped_column(JSONB, default=list, nullable=False)
+    # Sub-tasks / todos: list of {"text": str, "done": bool}.
+    checklist: Mapped[list[Any]] = mapped_column(JSONB, default=list, nullable=False)
 
     # Optional links to any core entity.
     company_id: Mapped[uuid.UUID | None] = mapped_column(

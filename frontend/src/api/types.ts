@@ -25,6 +25,9 @@ export type RubricUpdate = Schemas["RubricUpdate"];
 export type Interaction = Schemas["InteractionRead"];
 export type Task = Schemas["TaskRead"];
 export type TaskCreate = Schemas["TaskCreate"];
+export type TaskUpdate = Schemas["TaskUpdate"];
+export type ChecklistItem = Schemas["ChecklistItem"];
+export type User = Schemas["UserRead"];
 export type DocumentMeta = Schemas["DocumentRead"];
 // Agent 22: imports, Ritchie governance, portfolio.
 export type ImportBatch = Schemas["ImportBatchRead"];
