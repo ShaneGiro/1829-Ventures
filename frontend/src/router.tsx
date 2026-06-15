@@ -3,13 +3,16 @@ import { AppShell } from "@/components/layout/AppShell";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { LoginPage } from "@/pages/LoginPage";
-import { NotFoundPage, PlaceholderPage } from "@/pages/PlaceholderPage";
+import { NotFoundPage } from "@/pages/PlaceholderPage";
 import { CompanyList } from "@/pages/CompanyList";
 import { CompanyDetail } from "@/pages/CompanyDetail";
 import { PeopleList } from "@/pages/PeopleList";
 import { ContactDetail } from "@/pages/ContactDetail";
 import { PipelineBoard } from "@/pages/PipelineBoard";
 import { TaskList } from "@/pages/TaskList";
+import { ImportManager } from "@/pages/ImportManager";
+import { RitchiePage } from "@/pages/RitchiePage";
+import { PortfolioDashboard } from "@/pages/PortfolioDashboard";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -28,9 +31,9 @@ export const router = createBrowserRouter([
       { path: "people/:personId", element: <ContactDetail /> },
       { path: "deals", element: <PipelineBoard /> },
       { path: "tasks", element: <TaskList /> },
-      // Imports and Ritchie are implemented by Agent 22.
-      { path: "imports", element: <PlaceholderPage title="Imports" /> },
-      { path: "ritchie", element: <PlaceholderPage title="Ritchie" /> },
+      { path: "imports", element: <ImportManager /> },
+      { path: "portfolio", element: <PortfolioDashboard /> },
+      { path: "ritchie", element: <RitchiePage /> },
     ],
   },
   { path: "*", element: <NotFoundPage /> },

@@ -17,6 +17,17 @@ export type Interaction = Schemas["InteractionRead"];
 export type Task = Schemas["TaskRead"];
 export type TaskCreate = Schemas["TaskCreate"];
 export type DocumentMeta = Schemas["DocumentRead"];
+// Agent 22: imports, Ritchie governance, portfolio.
+export type ImportBatch = Schemas["ImportBatchRead"];
+export type ImportRow = Schemas["ImportRowRead"];
+export type AgentEvent = Schemas["AgentEventLogRead"];
+export type AgentPolicy = Schemas["AgentPolicyRead"];
+export type PolicyState = Schemas["PolicyState"];
+export type Fund = Schemas["FundRead"];
+export type Investment = Schemas["InvestmentRead"];
+export type PortfolioMetric = Schemas["PortfolioMetricRead"];
+export type PortfolioSummary = Schemas["PortfolioSummary"];
+export type AgentActivitySummary = Schemas["AgentActivitySummary"];
 
 /** All PaginatedResponse_X_ share this shape. */
 export interface Page<T> {
