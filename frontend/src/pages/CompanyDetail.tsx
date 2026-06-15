@@ -7,6 +7,7 @@ import { useDocuments } from "@/api/documents";
 import { RubricEditor } from "@/components/company/RubricEditor";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StateNotice } from "@/components/ui/state";
 
 export function CompanyDetail() {
   const { companyId } = useParams<{ companyId: string }>();
@@ -17,18 +18,18 @@ export function CompanyDetail() {
   const { data: tasks } = useTasks({ company_id: companyId, limit: 10 });
   const { data: documents } = useDocuments({ company_id: companyId, limit: 10 });
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
-  if (!company) return <p className="text-sm text-muted-foreground">Company not found.</p>;
+  if (isLoading) return <StateNotice title="Loading company" />;
+  if (!company) return <StateNotice title="Company not found" />;
 
   const activeDeal = deals?.items.find((d) => !d.archived_at) ?? deals?.items[0];
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">{company.name}</h1>
-          <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="break-words text-2xl font-semibold">{company.name}</h1>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <Badge>{company.relationship_status}</Badge>
             {company.sector && <span>{company.sector}</span>}
             {company.website && (
@@ -38,7 +39,7 @@ export function CompanyDetail() {
             )}
           </div>
         </div>
-        <div className="text-right">
+        <div className="sm:text-right">
           <div className="text-xs uppercase text-muted-foreground">Completeness</div>
           <div className="text-xl font-semibold">
             {Math.round(completeness?.completeness_pct ?? company.completeness_pct ?? 0)}%
@@ -46,8 +47,8 @@ export function CompanyDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2 space-y-6">
+      <div className="grid gap-6 xl:grid-cols-3">
+        <div className="space-y-6 xl:col-span-2">
           {activeDeal ? (
             <RubricEditor dealId={activeDeal.id} />
           ) : (
@@ -141,7 +142,7 @@ function Field({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="flex justify-between gap-4">
       <span className="text-muted-foreground">{label}</span>
-      <span className="text-right">{value || "—"}</span>
+      <span className="min-w-0 break-words text-right">{value || "—"}</span>
     </div>
   );
 }

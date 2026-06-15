@@ -2,26 +2,34 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { usePeople } from "@/api/people";
 import { Input } from "@/components/ui/input";
+import { StateNotice } from "@/components/ui/state";
 
 export function PeopleList() {
   const [q, setQ] = useState("");
-  const { data, isLoading } = usePeople({ q: q || undefined, limit: 50 });
+  const { data, isLoading, isError } = usePeople({ q: q || undefined, limit: 50 });
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-semibold">People</h1>
         <Input
           placeholder="Search…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          className="w-64"
+          className="w-full sm:w-64"
         />
       </div>
-      {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {isLoading && <StateNotice title="Loading people" />}
+      {isError && (
+        <StateNotice
+          title="Could not load people"
+          description="Refresh the page or check the API connection."
+          variant="error"
+        />
+      )}
       {data && (
-        <div className="overflow-hidden rounded-lg border">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="min-w-[640px] w-full text-sm">
             <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="px-4 py-2">Name</th>

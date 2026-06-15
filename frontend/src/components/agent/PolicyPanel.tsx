@@ -3,6 +3,7 @@ import type { AgentPolicy } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StateNotice } from "@/components/ui/state";
 
 /**
  * Binary authorization toggles per Ritchie tool/field. Flipping a row applies
@@ -10,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
  * governance is strictly authorized/blocked.
  */
 export function PolicyPanel() {
-  const { data: policies, isLoading } = useAgentPolicies();
+  const { data: policies, isLoading, isError } = useAgentPolicies();
   const setPolicy = useSetPolicy();
 
   const toggle = (p: AgentPolicy) =>
@@ -26,17 +27,18 @@ export function PolicyPanel() {
         <CardTitle>Authorization policy</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
-        {isLoading && <p className="text-sm text-muted-foreground">Loading policy…</p>}
+        {isLoading && <StateNotice title="Loading policy" />}
+        {isError && <StateNotice title="Could not load policy" variant="error" />}
         {policies?.map((p) => (
           <div
             key={`${p.tool}:${p.field_name ?? "*"}`}
-            className="flex items-center justify-between rounded-md border p-3 text-sm"
+            className="flex flex-col gap-3 rounded-md border p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
           >
-            <div>
+            <div className="min-w-0 break-words">
               <span className="font-medium">{p.tool}</span>
               {p.field_name && <span className="text-muted-foreground">.{p.field_name}</span>}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <Badge
                 className={
                   p.state === "authorized"
@@ -58,9 +60,10 @@ export function PolicyPanel() {
           </div>
         ))}
         {policies?.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            No policy rows yet. Seed defaults from the backend to populate tool toggles.
-          </p>
+          <StateNotice
+            title="No policy rows yet"
+            description="Seed defaults from the backend to populate tool toggles."
+          />
         )}
       </CardContent>
     </Card>

@@ -1,19 +1,20 @@
 import { useParams } from "react-router-dom";
 import { usePerson, usePersonAffiliations } from "@/api/people";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StateNotice } from "@/components/ui/state";
 
 export function ContactDetail() {
   const { personId } = useParams<{ personId: string }>();
   const { data: person, isLoading } = usePerson(personId);
   const { data: affiliations } = usePersonAffiliations(personId);
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
-  if (!person) return <p className="text-sm text-muted-foreground">Contact not found.</p>;
+  if (isLoading) return <StateNotice title="Loading contact" />;
+  if (!person) return <StateNotice title="Contact not found" />;
 
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">{person.full_name}</h1>
+        <h1 className="break-words text-2xl font-semibold">{person.full_name}</h1>
         {person.title && <p className="text-sm text-muted-foreground">{person.title}</p>}
       </div>
 
@@ -53,7 +54,7 @@ function Field({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="flex justify-between gap-4">
       <span className="text-muted-foreground">{label}</span>
-      <span className="text-right">{value || "—"}</span>
+      <span className="min-w-0 break-words text-right">{value || "—"}</span>
     </div>
   );
 }
