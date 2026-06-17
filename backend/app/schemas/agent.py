@@ -43,6 +43,30 @@ class ToolExecuteResponse(BaseModel):
     event_id: str | None = None
 
 
+class AgentMessageRequest(BaseModel):
+    """Human-authored work item to enqueue for Ritchie."""
+
+    prompt: str = Field(min_length=1, max_length=8000)
+    entity_type: str | None = Field(default=None, max_length=64)
+    entity_id: str | None = Field(default=None, max_length=128)
+
+
+class AgentMessageResponse(BaseModel):
+    event_id: uuid.UUID
+    status: AgentEventStatus
+
+
+class AgentChatRequest(AgentMessageRequest):
+    """Human-authored chat turn that should receive a Ritchie response."""
+
+
+class AgentChatResponse(BaseModel):
+    event_id: uuid.UUID
+    status: AgentEventStatus
+    message: str
+    elapsed_ms: int | None = None
+
+
 class AgentContextResult(BaseModel):
     entity_type: str
     entity_id: uuid.UUID

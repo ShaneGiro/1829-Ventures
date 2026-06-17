@@ -1,0 +1,28 @@
+{
+  "projectId": "b101a529-0bf3-450c-b58a-cf210e42d30b",
+  "pkg": "ventures-crm-frontend",
+  "globalName": "VenturesCrmUI",
+  "shape": "package",
+  "srcDir": "src/components/ui",
+  "tsconfig": "tsconfig.app.json",
+  "cssEntry": ".ds-compiled.css",
+  "readmeHeader": ".design-sync/conventions.md",
+  "componentSrcMap": {
+    "buttonVariants": null
+  },
+  "dtsPropsFor": {
+    "Button": "variant?: \"default\" | \"outline\" | \"ghost\" | \"destructive\"; size?: \"default\" | \"sm\" | \"lg\" | \"icon\"; type?: \"button\" | \"submit\" | \"reset\"; disabled?: boolean; onClick?: React.MouseEventHandler<HTMLButtonElement>; className?: string; children?: React.ReactNode",
+    "Badge": "className?: string; children?: React.ReactNode",
+    "Card": "className?: string; children?: React.ReactNode",
+    "CardHeader": "className?: string; children?: React.ReactNode",
+    "CardTitle": "className?: string; children?: React.ReactNode",
+    "CardContent": "className?: string; children?: React.ReactNode",
+    "Input": "type?: string; placeholder?: string; value?: string; defaultValue?: string; disabled?: boolean; onChange?: React.ChangeEventHandler<HTMLInputElement>; className?: string",
+    "Textarea": "placeholder?: string; value?: string; defaultValue?: string; rows?: number; disabled?: boolean; onChange?: React.ChangeEventHandler<HTMLTextAreaElement>; className?: string",
+    "ConfirmDialog": "open: boolean; title: string; description?: React.ReactNode; confirmLabel?: string; cancelLabel?: string; destructive?: boolean; busy?: boolean; onConfirm: () => void; onCancel: () => void",
+    "StateNotice": "title: string; description?: string; variant?: \"muted\" | \"error\"; className?: string"
+  },
+  "overrides": {
+    "ConfirmDialog": { "cardMode": "single", "viewport": "520x480" }
+  }
+}

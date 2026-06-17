@@ -62,8 +62,17 @@ class Settings(BaseSettings):
     google_redirect_uri: str = Field(default="http://localhost:8000/api/auth/callback")
     # Long-lived scoped key for Ritchie (the agent role). Compared by hash.
     agent_api_key: str = Field(default="")
-    # kernelbot webhook for outbound event fanout. Empty in local dev = no-op.
+    # kernelbot scheduler endpoint for outbound Ritchie event fanout. Empty = no-op.
     ritchie_webhook_url: str = Field(default="")
+    ritchie_scheduler_tag: str = Field(default="1829-crm")
+    ritchie_scheduler_model: str = Field(default="sonnet")
+    ritchie_scheduler_max_retries: int = Field(default=1)
+    # Synchronous kernelbot admin API for chat responses. Empty = chat disabled.
+    ritchie_chat_url: str = Field(default="")
+    ritchie_chat_timeout_seconds: float = Field(default=120.0)
+    # URLs included inside jobs so kernelbot knows how to call back into this app.
+    ritchie_crm_api_base_url: str = Field(default="http://host.docker.internal:8000/api")
+    ritchie_crm_mcp_url: str = Field(default="http://host.docker.internal:8000/mcp")
 
     # ─── Object storage (S3-compatible: MinIO in v1, R2 in v2) ────────────────
     s3_endpoint_url: str = Field(default="http://localhost:9000")

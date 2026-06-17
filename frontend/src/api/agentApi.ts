@@ -26,3 +26,24 @@ export function useSetPolicy() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["agent", "policies"] }),
   });
 }
+
+export function useSendRitchieMessage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { prompt: string; entity_type?: string | null; entity_id?: string | null }) =>
+      api.post<{ event_id: string; status: string }>("/agent/messages", body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent", "events"] }),
+  });
+}
+
+export function useChatWithRitchie() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { prompt: string; entity_type?: string | null; entity_id?: string | null }) =>
+      api.post<{ event_id: string; status: string; message: string; elapsed_ms?: number | null }>(
+        "/agent/chat",
+        body,
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent", "events"] }),
+  });
+}

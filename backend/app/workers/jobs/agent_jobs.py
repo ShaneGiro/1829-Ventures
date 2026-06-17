@@ -31,6 +31,17 @@ async def _mark_agent_unavailable(event_id: uuid.UUID, detail: str) -> None:
             await session.commit()
 
 
+async def _mark_agent_delivered(event_id: uuid.UUID) -> None:
+    async with AsyncSessionLocal() as session:
+        event = await agent_repo.get_event(session, event_id)
+        if event is not None:
+            event.status = AgentEventStatus.PROCESSING
+            event.response_summary = (
+                "queued with Ritchie scheduler; awaiting CRM tool execution"
+            )
+            await session.commit()
+
+
 @celery_app.task(bind=True, name="agent.deliver_event", max_retries=MAX_RETRIES)
 def deliver_agent_event(self: Task, envelope: dict[str, Any], event_id: str | None = None) -> str:
     """Deliver one event envelope to kernelbot; retry with backoff on failure."""
@@ -43,4 +54,6 @@ def deliver_agent_event(self: Task, envelope: dict[str, Any], event_id: str | No
             return "agent_unavailable"
         # Exponential backoff: 2s, 4s, 8s, ...
         raise self.retry(exc=exc, countdown=2 ** (self.request.retries + 1)) from exc
+    if event_id is not None:
+        asyncio.run(_mark_agent_delivered(uuid.UUID(event_id)))
     return "delivered"

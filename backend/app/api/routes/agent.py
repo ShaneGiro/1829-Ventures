@@ -8,16 +8,30 @@ block tools at runtime; the agent key cannot change its own permissions.
 
 from __future__ import annotations
 
+import hashlib
+import json
+
 from fastapi import APIRouter, Query
 
 from app.agent.mcp import MCP_TRANSPORT
 from app.agent.tools import all_tools
 from app.core.audit import actor_from_user
+from app.core.config import settings
+from app.core.constants import AgentEventStatus
 from app.core.dependencies import CurrentAgent, CurrentUser, DbSession
+from app.integrations.ritchie_client import (
+    RitchieUnavailableError,
+    build_envelope,
+    chat_with_ritchie,
+)
 from app.repositories import agent as agent_repo
 from app.schemas.agent import (
+    AgentChatRequest,
+    AgentChatResponse,
     AgentContextResult,
     AgentEventLogRead,
+    AgentMessageRequest,
+    AgentMessageResponse,
     AgentPolicyRead,
     PolicySetRequest,
     ToolDefinition,
@@ -26,8 +40,13 @@ from app.schemas.agent import (
 )
 from app.schemas.common import PaginatedResponse
 from app.services import agent_policy_service, agent_service, search_service
+from app.workers.jobs.agent_jobs import deliver_agent_event
 
 router = APIRouter()
+
+
+def _payload_hash(payload: dict[str, object]) -> str:
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
 
 
 @router.get("/tools", response_model=list[ToolDefinition])
@@ -111,6 +130,124 @@ async def list_events(
         total=total,
         limit=limit,
         offset=offset,
+    )
+
+
+@router.post("/messages", response_model=AgentMessageResponse)
+async def send_message_to_ritchie(
+    request: AgentMessageRequest,
+    db: DbSession,
+    user: CurrentUser,
+) -> AgentMessageResponse:
+    """Queue a human-authored CRM task for kernelbot/Ritchie."""
+    payload: dict[str, object] = {
+        "prompt": request.prompt,
+        "requested_by": {
+            "id": str(user.id),
+            "email": user.email,
+            "full_name": user.full_name,
+        },
+        "crm": {
+            "api_base_url": settings.ritchie_crm_api_base_url,
+            "mcp_url": settings.ritchie_crm_mcp_url,
+            "agent_api_key_required": bool(settings.agent_api_key),
+            "mcp_transport": MCP_TRANSPORT,
+        },
+    }
+    event = await agent_repo.create_event(
+        db,
+        event_type="human_prompt",
+        entity_type=request.entity_type,
+        entity_id=request.entity_id,
+        payload=payload,
+        payload_hash=_payload_hash(payload),
+        status=AgentEventStatus.PENDING,
+    )
+    envelope = build_envelope(
+        "human_prompt",
+        payload,
+        entity_type=request.entity_type,
+        entity_id=request.entity_id,
+    )
+    await db.commit()
+    deliver_agent_event.delay(envelope, str(event.id))
+    return AgentMessageResponse(event_id=event.id, status=event.status)
+
+
+@router.post("/chat", response_model=AgentChatResponse)
+async def chat_with_ritchie_route(
+    request: AgentChatRequest,
+    db: DbSession,
+    user: CurrentUser,
+) -> AgentChatResponse:
+    """Send a chat turn to Ritchie and wait for a short response."""
+    payload: dict[str, object] = {
+        "prompt": request.prompt,
+        "mode": "chat",
+        "instructions": (
+            "Respond conversationally to the user. If the request asks you to update CRM "
+            "state, use the CRM MCP tools first, then summarize what changed. Write a "
+            "concise final answer to the provided result path."
+        ),
+        "requested_by": {
+            "id": str(user.id),
+            "email": user.email,
+            "full_name": user.full_name,
+        },
+        "crm": {
+            "api_base_url": settings.ritchie_crm_api_base_url,
+            "mcp_url": settings.ritchie_crm_mcp_url,
+            "agent_api_key_required": bool(settings.agent_api_key),
+            "mcp_transport": MCP_TRANSPORT,
+        },
+    }
+    event = await agent_repo.create_event(
+        db,
+        event_type="human_chat",
+        entity_type=request.entity_type,
+        entity_id=request.entity_id,
+        payload=payload,
+        payload_hash=_payload_hash(payload),
+        status=AgentEventStatus.PROCESSING,
+    )
+    envelope = build_envelope(
+        "human_chat",
+        payload,
+        entity_type=request.entity_type,
+        entity_id=request.entity_id,
+    )
+    await db.commit()
+
+    try:
+        result = chat_with_ritchie(
+            envelope,
+            timeout=settings.ritchie_chat_timeout_seconds,
+        )
+    except RitchieUnavailableError as exc:
+        event.status = AgentEventStatus.AGENT_UNAVAILABLE
+        event.rationale = str(exc)
+        await db.commit()
+        return AgentChatResponse(
+            event_id=event.id,
+            status=event.status,
+            message="Ritchie is not available for chat right now.",
+        )
+
+    message = str(result.get("summary") or "").strip() or "Ritchie finished without a reply."
+    exit_code = int(result.get("exit") or 0)
+    event.status = AgentEventStatus.PROCESSED if exit_code == 0 else AgentEventStatus.FAILED
+    if exit_code == 124:
+        message = (
+            "Ritchie did not respond before the chat timeout. Check that Claude is "
+            "logged in inside kernelbot."
+        )
+    event.response_summary = message
+    await db.commit()
+    return AgentChatResponse(
+        event_id=event.id,
+        status=event.status,
+        message=message,
+        elapsed_ms=int(result["elapsed_ms"]) if result.get("elapsed_ms") is not None else None,
     )
 
 

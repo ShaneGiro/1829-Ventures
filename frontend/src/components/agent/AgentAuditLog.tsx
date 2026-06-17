@@ -4,11 +4,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StateNotice } from "@/components/ui/state";
 
 const STATUS_STYLE: Record<string, string> = {
+  pending: "border-blue-500 text-blue-700",
+  processing: "border-blue-500 text-blue-700",
   processed: "border-green-500 text-green-700",
   policy_blocked: "border-red-500 text-red-700",
   agent_unavailable: "border-amber-500 text-amber-700",
   failed: "border-red-500 text-red-700",
 };
+
+function statusLabel(eventType: string, status: string) {
+  if (eventType === "human_prompt" && status === "processing") return "queued with Ritchie";
+  if (eventType === "human_prompt" && status === "processed") return "delivered to Ritchie";
+  return status.replaceAll("_", " ");
+}
 
 /** Feed of what Ritchie did (authorized writes) and attempted (policy_blocked). */
 export function AgentAuditLog() {
@@ -26,7 +34,9 @@ export function AgentAuditLog() {
           <div key={e.id} className="rounded-md border p-3 text-sm">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <span className="break-words font-medium">{e.event_type}</span>
-              <Badge className={STATUS_STYLE[e.status] ?? ""}>{e.status}</Badge>
+              <Badge className={STATUS_STYLE[e.status] ?? ""}>
+                {statusLabel(e.event_type, e.status)}
+              </Badge>
             </div>
             {e.blocked_tool && (
               <div className="mt-1 text-xs text-red-700">Blocked tool: {e.blocked_tool}</div>

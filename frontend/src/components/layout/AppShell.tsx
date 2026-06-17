@@ -1,4 +1,5 @@
 import { Outlet } from "react-router-dom";
+import { RitchieChatWidget } from "@/components/agent/RitchieChatWidget";
 import { MobileNav, Sidebar } from "@/components/layout/Sidebar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -28,6 +29,7 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+      <RitchieChatWidget />
     </div>
   );
 }

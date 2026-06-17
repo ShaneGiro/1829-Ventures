@@ -350,18 +350,6 @@ function MetricExplorer({ series, years }: { series: MetricSeries[]; years: numb
 function LineSeriesChart({ series, years }: { series: MetricSeries; years: number[] }) {
   const byYear = new Map(series.points.map((point) => [point.year, point.value]));
   const linePoints = interpolateLinePoints(years, series.points);
-  if (!linePoints.length) return <p className="text-sm text-muted-foreground">No values to chart.</p>;
-  const scale = chartScale(linePoints.map((point) => point.value));
-  const chartWidth = 1000;
-  const points = linePoints.map((point, index) => {
-    const x =
-      years.length === 1 ? chartWidth / 2 : (index / Math.max(years.length - 1, 1)) * chartWidth;
-    const y = valueToY(point.value, scale);
-    return { ...point, x, y };
-  });
-  const polyline = points.map((point) => `${point.x},${point.y}`).join(" ");
-  const actualPoints = points.filter((point) => byYear.has(point.year));
-
   const chartInnerRef = useRef<HTMLDivElement | null>(null);
   const [innerSize, setInnerSize] = useState({ w: 0, h: 0 });
 
@@ -377,11 +365,23 @@ function LineSeriesChart({ series, years }: { series: MetricSeries; years: numbe
     return () => window.removeEventListener("resize", measure);
   }, []);
 
+  const chartWidth = 1000;
   const scaleX = innerSize.w && chartWidth ? innerSize.w / chartWidth : 1;
   const scaleY = innerSize.h ? innerSize.h / 100 : 1;
   const desiredPixelRadius = 4; // desired visible radius in px
   const rx = scaleX ? desiredPixelRadius / scaleX : 4;
   const ry = scaleY ? desiredPixelRadius / scaleY : 4;
+
+  if (!linePoints.length) return <p className="text-sm text-muted-foreground">No values to chart.</p>;
+  const scale = chartScale(linePoints.map((point) => point.value));
+  const points = linePoints.map((point, index) => {
+    const x =
+      years.length === 1 ? chartWidth / 2 : (index / Math.max(years.length - 1, 1)) * chartWidth;
+    const y = valueToY(point.value, scale);
+    return { ...point, x, y };
+  });
+  const polyline = points.map((point) => `${point.x},${point.y}`).join(" ");
+  const actualPoints = points.filter((point) => byYear.has(point.year));
 
   return (
     <ChartFrame
@@ -1201,7 +1201,7 @@ function splitInvestors(value: string): string[] {
 function formatMonthYear(value: string): string {
   if (!value) return value;
   const trimmed = value.trim();
-  const m = trimmed.match(/^([A-Za-z]{3})[\/-](\d{4})$/);
+  const m = trimmed.match(/^([A-Za-z]{3})[/-](\d{4})$/);
   if (m) {
     const month = m[1];
     return month[0].toUpperCase() + month.slice(1).toLowerCase() + " " + m[2];
@@ -1212,7 +1212,7 @@ function formatMonthYear(value: string): string {
 function formatChipValue(value: string, label?: string): string {
   if (!value) return value;
   const trimmed = value.trim();
-  const percentMatch = trimmed.match(/^([\d,\.\-]+)\s*%$/);
+  const percentMatch = trimmed.match(/^([\d,.-]+)\s*%$/);
   const numericStr = percentMatch ? percentMatch[1] : trimmed;
   const n = Number(numericStr.replace(/,/g, ""));
   if (Number.isFinite(n)) {

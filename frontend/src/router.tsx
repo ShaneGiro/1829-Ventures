@@ -11,7 +11,6 @@ import { ContactDetail } from "@/pages/ContactDetail";
 import { PipelineBoard } from "@/pages/PipelineBoard";
 import { TaskList } from "@/pages/TaskList";
 import { ImportManager } from "@/pages/ImportManager";
-import { RitchiePage } from "@/pages/RitchiePage";
 import { PortfolioDashboard } from "@/pages/PortfolioDashboard";
 
 export const router = createBrowserRouter([
@@ -33,7 +32,6 @@ export const router = createBrowserRouter([
       { path: "tasks", element: <TaskList /> },
       { path: "imports", element: <ImportManager /> },
       { path: "portfolio", element: <PortfolioDashboard /> },
-      { path: "ritchie", element: <RitchiePage /> },
     ],
   },
   { path: "*", element: <NotFoundPage /> },

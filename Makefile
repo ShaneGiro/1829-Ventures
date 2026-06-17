@@ -5,6 +5,7 @@ SHELL := /bin/bash
 
 BACKEND := backend
 FRONTEND := frontend
+KERNELBOT_DIR ?= ../kernelbot_rit
 COMPOSE := docker compose
 PYTHON ?= python3.12
 VENV := $(BACKEND)/.venv
@@ -20,7 +21,8 @@ PYTEST := $(VENV)/bin/pytest
 .PHONY: help \
 	check check-docker check-node check-python env setup install backend-install frontend-install \
 	up up-build up-infra down restart logs logs-api logs-worker ps build shell \
-	dev frontend-dev frontend-preview frontend-build frontend-lint frontend-typecheck frontend-test frontend-check frontend-gen-api \
+	dev crm-dev ritchie-up ritchie-down ritchie-ps ritchie-logs \
+	frontend-dev frontend-preview frontend-build frontend-lint frontend-typecheck frontend-test frontend-check frontend-gen-api \
 	backend-dev backend-worker migrate revision lint format typecheck test test-cov backend-check backup clean
 
 help: ## Show this help
@@ -88,7 +90,25 @@ build: check-docker ## Rebuild Docker images
 shell: check-docker ## Open a shell in the running API container
 	$(COMPOSE) exec api /bin/bash
 
-dev: up frontend-dev ## Start Docker backend stack, then run Vite frontend
+ritchie-up: check-docker ## Start sibling kernelbot/Ritchie stack
+	@test -d "$(KERNELBOT_DIR)" || { echo "kernelbot repo not found at $(KERNELBOT_DIR). Override with KERNELBOT_DIR=/path/to/kernelbot_rit."; exit 1; }
+	$(MAKE) -C "$(KERNELBOT_DIR)" up
+
+ritchie-down: check-docker ## Stop sibling kernelbot/Ritchie stack
+	@test -d "$(KERNELBOT_DIR)" || { echo "kernelbot repo not found at $(KERNELBOT_DIR). Override with KERNELBOT_DIR=/path/to/kernelbot_rit."; exit 1; }
+	$(MAKE) -C "$(KERNELBOT_DIR)" down
+
+ritchie-ps: check-docker ## Show sibling kernelbot/Ritchie service status
+	@test -d "$(KERNELBOT_DIR)" || { echo "kernelbot repo not found at $(KERNELBOT_DIR). Override with KERNELBOT_DIR=/path/to/kernelbot_rit."; exit 1; }
+	cd "$(KERNELBOT_DIR)" && $(COMPOSE) ps
+
+ritchie-logs: check-docker ## Tail sibling kernelbot/Ritchie logs
+	@test -d "$(KERNELBOT_DIR)" || { echo "kernelbot repo not found at $(KERNELBOT_DIR). Override with KERNELBOT_DIR=/path/to/kernelbot_rit."; exit 1; }
+	$(MAKE) -C "$(KERNELBOT_DIR)" logs
+
+dev: ritchie-up up frontend-dev ## Start Ritchie, Docker backend stack, then run Vite frontend
+
+crm-dev: up frontend-dev ## Start only the CRM Docker backend stack, then run Vite frontend
 
 frontend-dev: frontend-install ## Run the frontend dev server at http://localhost:5173
 	cd $(FRONTEND) && npm run dev

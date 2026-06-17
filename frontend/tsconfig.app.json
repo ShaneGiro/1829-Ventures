@@ -20,7 +20,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
-    "baseUrl": ".", // Gemini says to remove this line
+    // "baseUrl": ".", // Gemini says to remove this line
     "paths": {
       "@/*": [
         "./src/*"

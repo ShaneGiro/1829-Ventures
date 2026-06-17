@@ -5,7 +5,6 @@ import {
   Users,
   Briefcase,
   Upload,
-  Bot,
   CheckSquare,
   PieChart,
 } from "lucide-react";
@@ -19,7 +18,6 @@ const NAV = [
   { to: "/tasks", label: "Tasks", icon: CheckSquare },
   { to: "/portfolio", label: "Portfolio", icon: PieChart },
   { to: "/imports", label: "Imports", icon: Upload },
-  { to: "/ritchie", label: "Ritchie", icon: Bot },
 ];
 
 export function Sidebar() {

@@ -25,6 +25,6 @@ describe("app shell foundation", () => {
     render(withProviders(<Sidebar />));
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
     expect(screen.getByText("Companies")).toBeInTheDocument();
-    expect(screen.getByText("Ritchie")).toBeInTheDocument();
+    expect(screen.getByText("Tasks")).toBeInTheDocument();
   });
 });

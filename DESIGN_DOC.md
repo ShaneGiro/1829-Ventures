@@ -12,7 +12,7 @@ geometry: margin=1in
   - Shane Girolamo
   - Claude/Codex/Gemini-assisted implementation agents
 - Current implementation branch: `v1.1`
-- Last updated: 2026-06-15
+- Last updated: 2026-06-16
 
 ## Executive Summary
 
@@ -30,8 +30,8 @@ MinIO-compatible storage, Google OAuth, SendGrid integration boundaries,
 full-text search, semantic search, Gmail ingestion plumbing, and Ritchie agent
 policy/activity surfaces. The frontend is a React/Vite TypeScript single-page
 application with protected routing, CRM workflow pages, import management,
-portfolio views, Ritchie activity/policy screens, and OpenAPI-generated domain
-types.
+portfolio views, a global Ritchie chat widget, Ritchie activity/policy
+components, and OpenAPI-generated domain types.
 
 ### Purpose
 
@@ -62,6 +62,9 @@ implemented and merged into the v1 line:
 - CRM workflows: companies, people, pipeline, tasks, details, and rubric.
 - Imports, Ritchie activity/policy, and portfolio workflows.
 - Frontend responsiveness, loading/error/empty states, and build/test polish.
+- Ritchie was moved out of the primary navigation into a persistent bottom-right
+  chat widget mounted in the authenticated app shell, so users can talk to
+  Ritchie or ask it to perform CRM work from any page.
 
 Recent operational fixes:
 
@@ -176,10 +179,10 @@ MVP capabilities:
   thesis fit, and agent activity.
 - Gmail forwarded-email ingestion plumbing and AI-assisted fuzzy company
   matching.
-- Ritchie authentication, policy, event logging, typed tool surfaces, and
-  frontend policy/activity views.
+- Ritchie authentication, policy, event logging, typed tool surfaces, global
+  frontend chat widget, and frontend policy/activity views.
 - React/Vite frontend for login, dashboard, companies, people, pipeline, tasks,
-  imports, portfolio, Ritchie, detail pages, and rubric editing.
+  imports, portfolio, detail pages, rubric editing, and global Ritchie chat.
 
 ### MVP Features
 
@@ -320,7 +323,8 @@ Implemented UI capabilities:
 - Responsive app shell with desktop sidebar and mobile horizontal navigation.
 - Dashboard with pipeline summary.
 - Company list/detail, people list/detail, pipeline board, task list, import
-  manager, portfolio dashboard, and Ritchie policy/activity pages.
+  manager, portfolio dashboard, Ritchie policy/activity components, and a
+  persistent Ritchie chat widget available from every authenticated page.
 - Company list with debounced hybrid search and infinite scroll over all records.
 - Company list filters for CRM fields plus a scrollable Dealroom CSV filter
   section with every canonical column as an option. Text columns use
@@ -347,6 +351,11 @@ Implemented UI capabilities:
   page uses company-scoped rubric endpoints that create or reuse the company's
   screening deal so every company can be scored and the last saved values persist.
 - Loading, error, and empty states through shared UI patterns.
+- Bottom-right Ritchie chat widget mounted in `AppShell`; it keeps a local
+  session transcript, sends conversational turns through `/api/agent/chat`,
+  displays recent Ritchie activity status, and can be opened or hidden without
+  leaving the current CRM page. Background fire-and-forget work can still be
+  queued through `/api/agent/messages`.
 - API clients under `frontend/src/api/` and shared fetch client under
   `frontend/src/lib/api.ts`.
 
@@ -367,7 +376,7 @@ Login -> App Shell
   -> Imports
   -> Tasks
   -> Portfolio
-  -> Ritchie/Agent Activity
+  -> Global Ritchie chat widget
 ```
 
 The frontend should not hand-write domain model types. It must generate
@@ -396,9 +405,10 @@ Implemented component categories:
 
 - Layout components: app shell, sidebar, top nav, protected route wrapper.
 - UI primitives: button, card, input, badge, state notice.
-- Domain components: rubric editor, Ritchie audit log, Ritchie policy panel.
+- Domain components: rubric editor, Ritchie chat widget, Ritchie audit log,
+  Ritchie policy panel.
 - Pages: dashboard, login, companies, company detail, people, contact detail,
-  pipeline, tasks, imports, portfolio, Ritchie, and not-found placeholder.
+  pipeline, tasks, imports, portfolio, and not-found placeholder.
 - API hooks/clients: query/mutation wrappers around typed API requests.
 
 ### Application Tier
@@ -894,17 +904,23 @@ the frontend through Vite.
 
 ### Frontend Depth
 
-The frontend now covers the core CRM workflows, imports, Ritchie, and portfolio
-surfaces. Some deeper product flows remain intentionally thin, including richer
-unmatched Gmail review, notification feed/bell, advanced analytics dashboards,
-and full document upload/download UX.
+The frontend now covers the core CRM workflows, imports, portfolio surfaces, and
+Ritchie as a global chat entry point plus audit/policy components. Some deeper
+product flows remain intentionally thin, including richer unmatched Gmail
+review, notification feed/bell, advanced analytics dashboards, and full document
+upload/download UX.
 
 ### Ritchie MCP Completeness
 
 The current CRM contains `/agent` API surfaces, policy management, activity
-logging, typed tool execution foundations, and frontend policy/activity views.
-The full kernelbot MCP Streamable HTTP integration should be verified end to end
-before production use.
+logging, typed tool execution foundations, a frontend chat widget, and frontend
+policy/activity components. The chat widget uses `/api/agent/chat`, which calls
+kernelbot admin's synchronous `/invoke?wait=true` endpoint and returns Ritchie's
+one-line summary to the user. Background prompts use `/api/agent/messages`, which
+enqueue scheduler jobs without waiting for a response. A separate audited tool
+event is still required before the CRM should treat requested work, such as task
+creation, as completed. The full kernelbot MCP Streamable HTTP integration
+should be verified end to end before production use.
 
 ### Embedding Model Cold Start (search first-query latency)
 
@@ -998,6 +1014,17 @@ Key local URLs:
 - MinIO console: `http://localhost:9001`
 
 Postgres image is built from `docker/postgres/Dockerfile` to include pgvector.
+
+### Ritchie Credential Rotation Reminder
+
+Before treating `kernelbot_rit` as the 1829 Ventures Ritchie instance, replace
+the service credentials in `kernelbot_rit/.env` with keys owned by this
+deployment. This includes Google OAuth/Drive/Calendar/Gmail values, Slack,
+Discord, Dealroom, TickTick, OneDrive/rclone, Airtable, GitHub, and any other
+external API keys copied from another Ritchie repo or personal bot instance.
+Keep `kernelbot_rit` encrypted separately with its own `conf/age-key.txt`,
+`.env.enc`, and `memory.tar.gz.enc` so this instance does not share secrets or
+memory with another Ritchie deployment.
 
 ## Future Implementation Plan
 

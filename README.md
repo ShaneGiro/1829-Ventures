@@ -11,7 +11,7 @@ Internal CRM and operating system for 1829 Ventures. The current codebase includ
 - Gmail ingestion and fuzzy company matching backend plumbing.
 - Portfolio funds, investments, and portfolio summary APIs.
 - Ritchie agent policy, typed tool, activity/audit, and webhook integration surfaces.
-- React frontend with dashboard, companies, people, pipeline, tasks, imports, portfolio, and Ritchie pages.
+- React frontend with dashboard, companies, people, pipeline, tasks, imports, portfolio, and a global Ritchie chat widget.
 - Local Docker stack for Postgres, Redis, MinIO, FastAPI, and Celery.
 
 ## Tech Stack
@@ -112,10 +112,26 @@ CORS_ORIGINS=http://localhost:5173
 Optional values can remain empty during local development:
 
 ```env
-AGENT_API_KEY=
-RITCHIE_WEBHOOK_URL=
 SENDGRID_API_KEY=
 ```
+
+To connect Ritchie/kernelbot, set these values instead of leaving them blank:
+
+```env
+AGENT_API_KEY=use-the-same-long-random-value-in-kernelbot
+RITCHIE_WEBHOOK_URL=http://host.docker.internal:3003/schedule
+RITCHIE_SCHEDULER_TAG=1829-crm
+RITCHIE_SCHEDULER_MODEL=sonnet
+RITCHIE_SCHEDULER_MAX_RETRIES=1
+RITCHIE_CHAT_URL=http://host.docker.internal:3004/invoke?wait=true
+RITCHIE_CHAT_TIMEOUT_SECONDS=120
+RITCHIE_CRM_API_BASE_URL=http://host.docker.internal:8000/api
+RITCHIE_CRM_MCP_URL=http://host.docker.internal:8000/mcp
+```
+
+If you run the backend directly on your host instead of inside Docker,
+`RITCHIE_WEBHOOK_URL=http://localhost:3003/schedule` and
+`RITCHIE_CHAT_URL=http://localhost:3004/invoke?wait=true` are also valid.
 
 Do not commit `.env`.
 
@@ -343,7 +359,7 @@ The checked-in `.env.example` is configured for local development. At minimum, s
 
 ## Run With Docker Backend + Local Frontend
 
-This is the default development path. Docker runs the backend dependencies, API, and worker. Vite runs the frontend locally and proxies `/api` to `http://localhost:8000`.
+This is the default development path. Docker runs Ritchie/kernelbot, the backend dependencies, API, and worker. Vite runs the frontend locally and proxies `/api` to `http://localhost:8000`.
 
 Start the backend stack and frontend dev server:
 
@@ -351,7 +367,13 @@ Start the backend stack and frontend dev server:
 make dev
 ```
 
-`make dev` runs `make up`, ensures frontend dependencies are present, then starts Vite.
+`make dev` runs `make ritchie-up`, runs `make up`, ensures frontend dependencies are present, then starts Vite.
+
+If you want the old CRM-only path without Ritchie:
+
+```bash
+make crm-dev
+```
 
 If you want separate terminals, start the backend stack:
 
@@ -498,6 +520,11 @@ make help
 make check
 make setup
 make dev
+make crm-dev
+make ritchie-up
+make ritchie-down
+make ritchie-ps
+make ritchie-logs
 make up
 make up-build
 make up-infra
@@ -522,6 +549,29 @@ make clean
 - `worker`: Celery worker.
 
 The frontend is not currently a Compose service in the development stack; run it with `npm run dev` from `frontend/`.
+
+## Ritchie / kernelbot Integration
+
+Ritchie lives in the sibling `kernelbot_rit/` repo. The CRM connects to it in three directions:
+
+- CRM to kernelbot: `POST /api/agent/messages` queues human tasks by delivering a kernelbot scheduler job to `RITCHIE_WEBHOOK_URL`.
+- CRM chat to kernelbot: `POST /api/agent/chat` calls kernelbot admin's synchronous `/invoke?wait=true` API at `RITCHIE_CHAT_URL` so the bottom-right widget can show a Ritchie response.
+- kernelbot to CRM: Ritchie uses `CRM_MCP_URL` plus `CRM_AGENT_API_KEY` to call the CRM MCP tools mounted at `/mcp`.
+- Auditing: queued prompts and Ritchie tool calls appear in the Ritchie activity surfaces; the chat widget is available from the bottom-right corner of every authenticated page.
+
+Local setup:
+
+```bash
+# From 1829-Ventures/, start Ritchie, the CRM backend stack, and the frontend.
+make dev
+```
+
+After login, open any authenticated page and use the bottom-right `Ritchie`
+chat button. Ordinary questions return a chat response through `/api/agent/chat`.
+Requests that mutate CRM state should also produce a separate audited tool
+event, such as `create_followup_task`, before the CRM should be treated as
+updated. Background-only prompts sent through `/api/agent/messages` still show
+as `queued with Ritchie` until Ritchie executes a tool.
 
 ## Project Layout
 
