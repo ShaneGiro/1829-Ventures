@@ -33,6 +33,8 @@ async def list_deal_statuses(
     offset: int = Query(default=0, ge=0),
 ) -> PaginatedResponse[DealStatusRead]:
     require_permission(current_user, PermissionAction.READ, PermissionResource.CRM)
+    await status_repo.seed_default_deal_statuses(db)
+    await db.commit()
     statuses = await status_repo.list_deal_statuses(db, limit=limit, offset=offset)
     total = await status_repo.count_deal_statuses(db)
     return PaginatedResponse(

@@ -36,3 +36,5 @@ class InvestmentRead(SoftDeleteRead, InvestmentBase):
     fund_id: uuid.UUID
     company_id: uuid.UUID
     deal_id: uuid.UUID | None = None
+    fund_name: str | None = None
+    company_name: str | None = None

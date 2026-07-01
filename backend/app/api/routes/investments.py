@@ -5,9 +5,13 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Query
+from sqlalchemy import select
 
 from app.core.dependencies import CurrentUser, DbSession
 from app.core.permissions import PermissionAction, PermissionResource
+from app.models.company import Company
+from app.models.fund import Fund
+from app.models.investment import Investment
 from app.repositories import investments as investment_repo
 from app.schemas.common import PaginatedResponse
 from app.schemas.fund import FundCreate, FundRead, FundUpdate
@@ -73,8 +77,14 @@ async def list_investments(
         db, limit=limit, offset=offset, include_archived=include_archived
     )
     total = await investment_repo.count_investments(db, include_archived=include_archived)
+    labels = await _investment_labels(db, investments)
     return PaginatedResponse(
-        items=[InvestmentRead.model_validate(investment) for investment in investments],
+        items=[
+            InvestmentRead.model_validate(investment).model_copy(
+                update=labels.get(investment.id, {})
+            )
+            for investment in investments
+        ],
         total=total,
         limit=limit,
         offset=offset,
@@ -101,7 +111,10 @@ async def get_investment(
     investment = await investment_service.get_investment(
         db, investment_id, include_archived=include_archived
     )
-    return InvestmentRead.model_validate(investment)
+    labels = await _investment_labels(db, [investment])
+    return InvestmentRead.model_validate(investment).model_copy(
+        update=labels.get(investment.id, {})
+    )
 
 
 @router.patch("/{investment_id}", response_model=InvestmentRead)
@@ -125,3 +138,28 @@ async def archive_investment(
     require_permission(current_user, PermissionAction.ARCHIVE, PermissionResource.CRM)
     investment = await investment_service.archive_investment(db, investment_id, current_user)
     return InvestmentRead.model_validate(investment)
+
+
+async def _investment_labels(
+    db: DbSession, investments: list[Investment]
+) -> dict[uuid.UUID, dict[str, str | None]]:
+    if not investments:
+        return {}
+    ids = [investment.id for investment in investments]
+    rows = await db.execute(
+        select(
+            Investment.id,
+            Company.name.label("company_name"),
+            Fund.name.label("fund_name"),
+        )
+        .join(Company, Company.id == Investment.company_id)
+        .join(Fund, Fund.id == Investment.fund_id)
+        .where(Investment.id.in_(ids))
+    )
+    return {
+        investment_id: {
+            "company_name": company_name,
+            "fund_name": fund_name,
+        }
+        for investment_id, company_name, fund_name in rows
+    }

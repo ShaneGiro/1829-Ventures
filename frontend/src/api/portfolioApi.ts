@@ -5,6 +5,7 @@ import type {
   Fund,
   Investment,
   Page,
+  PortfolioMetric,
   PortfolioSummary,
 } from "@/api/types";
 
@@ -33,5 +34,12 @@ export function useInvestments(params?: { limit?: number }) {
   return useQuery({
     queryKey: ["investments", params],
     queryFn: () => api.get<Page<Investment>>("/investments", params),
+  });
+}
+
+export function usePortfolioMetrics(params?: { limit?: number }) {
+  return useQuery({
+    queryKey: ["portfolio-metrics", params],
+    queryFn: () => api.get<Page<PortfolioMetric>>("/portfolio-metrics", params),
   });
 }

@@ -26,3 +26,10 @@ dist/
 # Backups
 /backups/
 *.sql.gz
+
+# Private documents
+reference_files/
+
+# RIT seed data (contains embedded portfolio company details)
+backend/scripts/seed_ritvf_investments.py
+backend/scripts/seed_ritvf_investment_details.py

@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import { StateNotice } from "@/components/ui/state";
+import { formatDecimal } from "@/lib/utils";
 
 const FUNDING_FIELDS = [
   "Total funding (USD M)",
@@ -1272,7 +1273,7 @@ function numeric(value: string): number | undefined {
 }
 
 function formatNumber(value: number): string {
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
+  return formatDecimal(value);
 }
 
 function formatAxisNumber(value: number): string {
