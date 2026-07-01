@@ -8,9 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StateNotice } from "@/components/ui/state";
+import { CloseInvestmentDialog } from "@/components/deal/CloseInvestmentDialog";
 import { cn } from "@/lib/utils";
 
 const UNASSIGNED = "__unassigned__";
+const CLOSED_INVESTED = "Closed/Invested";
 
 /** Short, human-readable date for a deal's most recent change. */
 function formatLastActivity(updatedAt: string | null | undefined): string {
@@ -64,6 +66,9 @@ export function PipelineBoard() {
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [closeDealTarget, setCloseDealTarget] = useState<{ deal: Deal; statusId: string } | null>(
+    null,
+  );
 
   const companyName = useMemo(() => {
     const map = new Map<string, string>();
@@ -136,13 +141,24 @@ export function PipelineBoard() {
     if (nextId) canMoveRight = true;
   });
 
+  // Moving into "Closed/Invested" opens the closing-details form instead of
+  // moving immediately, so the investment date/amount/valuation get captured.
+  const attemptMove = (deal: Deal, targetId: string) => {
+    const targetStatus = orderedStatuses.find((s) => s.id === targetId);
+    if (targetStatus?.name === CLOSED_INVESTED) {
+      setCloseDealTarget({ deal, statusId: targetId });
+      return;
+    }
+    moveDeal.mutate({ id: deal.id, dealStatusId: targetId });
+  };
+
   const moveSelected = (direction: "left" | "right") => {
     selected.forEach((id) => {
       const d = dealById.get(id);
       if (!d) return;
       const { prevId, nextId } = neighbors(d);
       const target = direction === "left" ? prevId : nextId;
-      if (target) moveDeal.mutate({ id, dealStatusId: target });
+      if (target) attemptMove(d, target);
     });
   };
 
@@ -255,7 +271,7 @@ export function PipelineBoard() {
                         direction="left"
                         visibleClass={hoverClass}
                         disabled={moveDeal.isPending}
-                        onMove={() => moveDeal.mutate({ id: d.id, dealStatusId: prevId })}
+                        onMove={() => attemptMove(d, prevId)}
                       />
                     ) : (
                       spacer
@@ -265,7 +281,7 @@ export function PipelineBoard() {
                         direction="right"
                         visibleClass={hoverClass}
                         disabled={moveDeal.isPending}
-                        onMove={() => moveDeal.mutate({ id: d.id, dealStatusId: nextId })}
+                        onMove={() => attemptMove(d, nextId)}
                       />
                     ) : (
                       spacer
@@ -329,6 +345,22 @@ export function PipelineBoard() {
         busy={archiveDeal.isPending}
         onConfirm={handleDelete}
         onCancel={() => setConfirmOpen(false)}
+      />
+
+      <CloseInvestmentDialog
+        open={!!closeDealTarget}
+        companyId={closeDealTarget?.deal.company_id ?? ""}
+        companyName={
+          closeDealTarget
+            ? companyName.get(closeDealTarget.deal.company_id) ||
+              closeDealTarget.deal.name ||
+              "Untitled company"
+            : ""
+        }
+        dealId={closeDealTarget?.deal.id ?? ""}
+        targetStatusId={closeDealTarget?.statusId ?? ""}
+        existingNotes={closeDealTarget?.deal.decision_notes ?? null}
+        onClose={() => setCloseDealTarget(null)}
       />
     </div>
   );

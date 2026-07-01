@@ -37,6 +37,7 @@ export type AgentPolicy = Schemas["AgentPolicyRead"];
 export type PolicyState = Schemas["PolicyState"];
 export type Fund = Schemas["FundRead"];
 export type Investment = Schemas["InvestmentRead"];
+export type InvestmentCreate = Schemas["InvestmentCreate"];
 export type PortfolioMetric = Schemas["PortfolioMetricRead"];
 export type PortfolioSummary = Schemas["PortfolioSummary"];
 export type AgentActivitySummary = Schemas["AgentActivitySummary"];

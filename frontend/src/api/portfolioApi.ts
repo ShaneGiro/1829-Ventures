@@ -1,9 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type {
   AgentActivitySummary,
   Fund,
   Investment,
+  InvestmentCreate,
   Page,
   PortfolioMetric,
   PortfolioSummary,
@@ -34,6 +35,18 @@ export function useInvestments(params?: { limit?: number }) {
   return useQuery({
     queryKey: ["investments", params],
     queryFn: () => api.get<Page<Investment>>("/investments", params),
+  });
+}
+
+export function useCreateInvestment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: InvestmentCreate) => api.post<Investment>("/investments", body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["investments"] });
+      qc.invalidateQueries({ queryKey: ["analytics", "portfolio"] });
+      qc.invalidateQueries({ queryKey: ["portfolio-metrics"] });
+    },
   });
 }
 
