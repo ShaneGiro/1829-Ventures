@@ -39,6 +39,10 @@ EXPECTED_TABLES = {
     "agent_event_logs",
     "agent_policies",
     "notifications",
+    "organizations",
+    "organization_memberships",
+    "legal_entities",
+    "legal_entity_relationships",
 }
 
 

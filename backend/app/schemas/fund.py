@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from decimal import Decimal
 
 from pydantic import BaseModel
@@ -31,3 +32,5 @@ class FundUpdate(BaseModel):
 
 class FundRead(TimestampedRead, FundBase):
     status: FundStatus
+    organization_id: uuid.UUID
+    legal_entity_id: uuid.UUID | None

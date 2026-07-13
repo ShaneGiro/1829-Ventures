@@ -22,6 +22,7 @@ from app.api.routes import (
     imports,
     interactions,
     investments,
+    organizations,
     outreach_candidates,
     people,
     portfolio_metrics,
@@ -33,6 +34,14 @@ api_router = APIRouter()
 api_router.include_router(health.router)
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
+api_router.include_router(
+    organizations.router, prefix="/organizations", tags=["organizations"]
+)
+api_router.include_router(
+    organizations.legal_entities_router,
+    prefix="/legal-entities",
+    tags=["legal-entities"],
+)
 api_router.include_router(companies.router, prefix="/companies", tags=["companies"])
 api_router.include_router(people.router, prefix="/people", tags=["people"])
 api_router.include_router(people.contacts_router, prefix="/company-contacts", tags=["people"])

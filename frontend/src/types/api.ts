@@ -180,6 +180,112 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Organizations */
+        get: operations["list_organizations_api_organizations_get"];
+        put?: never;
+        /** Create Organization */
+        post: operations["create_organization_api_organizations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{organization_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Organization */
+        get: operations["get_organization_api_organizations__organization_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Organization */
+        patch: operations["update_organization_api_organizations__organization_id__patch"];
+        trace?: never;
+    };
+    "/api/legal-entities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Legal Entities */
+        get: operations["list_legal_entities_api_legal_entities_get"];
+        put?: never;
+        /** Create Legal Entity */
+        post: operations["create_legal_entity_api_legal_entities_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/legal-entities/relationships/by-organization/{organization_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Legal Entity Relationships */
+        get: operations["list_legal_entity_relationships_api_legal_entities_relationships_by_organization__organization_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/legal-entities/relationships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Legal Entity Relationship */
+        post: operations["create_legal_entity_relationship_api_legal_entities_relationships_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/legal-entities/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Legal Entity */
+        get: operations["get_legal_entity_api_legal_entities__entity_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Legal Entity */
+        patch: operations["update_legal_entity_api_legal_entities__entity_id__patch"];
+        trace?: never;
+    };
     "/api/companies": {
         parameters: {
             query?: never;
@@ -508,6 +614,93 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/outreach-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Outreach Candidates */
+        get: operations["list_outreach_candidates_api_outreach_candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/outreach-candidates/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Candidate Lists */
+        get: operations["list_candidate_lists_api_outreach_candidates_lists_get"];
+        put?: never;
+        /** Create Candidate List */
+        post: operations["create_candidate_list_api_outreach_candidates_lists_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/outreach-candidates/lists/{list_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Candidate List */
+        get: operations["get_candidate_list_api_outreach_candidates_lists__list_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Candidate List */
+        patch: operations["update_candidate_list_api_outreach_candidates_lists__list_id__patch"];
+        trace?: never;
+    };
+    "/api/outreach-candidates/lists/{list_id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Candidate List Item */
+        post: operations["add_candidate_list_item_api_outreach_candidates_lists__list_id__items_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/outreach-candidates/lists/{list_id}/items/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Candidate List Item */
+        patch: operations["update_candidate_list_item_api_outreach_candidates_lists__list_id__items__item_id__patch"];
         trace?: never;
     };
     "/api/deals": {
@@ -964,6 +1157,40 @@ export interface paths {
         put?: never;
         /** Create Presigned Upload */
         post: operations["create_presigned_upload_api_documents_presigned_upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/documents/{document_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Upload */
+        post: operations["confirm_upload_api_documents__document_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/documents/{document_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download Document */
+        get: operations["download_document_api_documents__document_id__download_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1531,10 +1758,32 @@ export interface components {
             /** Updated By */
             updated_by?: string | null;
         };
+        /**
+         * AlumniFounderStatus
+         * @enum {string}
+         */
+        AlumniFounderStatus: "active" | "unclear" | "inactive" | "not_found" | "unverified";
         /** Body_upload_dealroom_file_api_imports_dealroom_post */
         Body_upload_dealroom_file_api_imports_dealroom_post: {
             /** File */
             file: string;
+        };
+        /** CandidateScoreBreakdown */
+        CandidateScoreBreakdown: {
+            /** Alumni Founder */
+            alumni_founder: number;
+            /** Operational */
+            operational: number;
+            /** Stage Fit */
+            stage_fit: number;
+            /** Rubric Fit */
+            rubric_fit: number;
+            /** Thesis Alignment */
+            thesis_alignment: number;
+            /** Evidence Confidence */
+            evidence_confidence: number;
+            /** Outreach Recency */
+            outreach_recency: number;
         };
         /** ChecklistItem */
         ChecklistItem: {
@@ -1729,6 +1978,36 @@ export interface components {
             imported_unreviewed: boolean;
             /** Completeness Pct */
             completeness_pct: number;
+            alumni_founder_status: components["schemas"]["AlumniFounderStatus"];
+            /** Alumni Founder Confidence */
+            alumni_founder_confidence?: number | null;
+            /** Alumni Founder Evidence */
+            alumni_founder_evidence?: {
+                [key: string]: unknown;
+            };
+            /** Alumni Founder Verified At */
+            alumni_founder_verified_at?: string | null;
+            operational_status: components["schemas"]["OperationalStatus"];
+            /** Operational Confidence */
+            operational_confidence?: number | null;
+            /** Operational Evidence */
+            operational_evidence?: {
+                [key: string]: unknown;
+            };
+            /** Operational Verified At */
+            operational_verified_at?: string | null;
+            /** Rubric Fit Score */
+            rubric_fit_score?: number | null;
+            /** Thesis Alignment Score */
+            thesis_alignment_score?: number | null;
+            /** Fit Score Confidence */
+            fit_score_confidence?: number | null;
+            /** Fit Score Reasons */
+            fit_score_reasons?: string[];
+            /** Fit Score Version */
+            fit_score_version?: string | null;
+            /** Fit Scored At */
+            fit_scored_at?: string | null;
         };
         /** CompanyUpdate */
         CompanyUpdate: {
@@ -1755,6 +2034,36 @@ export interface components {
             rit_source_channel?: string | null;
             /** Thesis Notes */
             thesis_notes?: string | null;
+            alumni_founder_status?: components["schemas"]["AlumniFounderStatus"] | null;
+            /** Alumni Founder Confidence */
+            alumni_founder_confidence?: number | null;
+            /** Alumni Founder Evidence */
+            alumni_founder_evidence?: {
+                [key: string]: unknown;
+            } | null;
+            /** Alumni Founder Verified At */
+            alumni_founder_verified_at?: string | null;
+            operational_status?: components["schemas"]["OperationalStatus"] | null;
+            /** Operational Confidence */
+            operational_confidence?: number | null;
+            /** Operational Evidence */
+            operational_evidence?: {
+                [key: string]: unknown;
+            } | null;
+            /** Operational Verified At */
+            operational_verified_at?: string | null;
+            /** Rubric Fit Score */
+            rubric_fit_score?: number | null;
+            /** Thesis Alignment Score */
+            thesis_alignment_score?: number | null;
+            /** Fit Score Confidence */
+            fit_score_confidence?: number | null;
+            /** Fit Score Reasons */
+            fit_score_reasons?: string[] | null;
+            /** Fit Score Version */
+            fit_score_version?: string | null;
+            /** Fit Scored At */
+            fit_scored_at?: string | null;
         };
         /** CountByKey */
         CountByKey: {
@@ -2005,6 +2314,16 @@ export interface components {
             /** Person Id */
             person_id?: string | null;
         };
+        /** DocumentDownloadResponse */
+        DocumentDownloadResponse: {
+            /** Download Url */
+            download_url: string;
+            /**
+             * Expires In
+             * @default 300
+             */
+            expires_in: number;
+        };
         /** DocumentRead */
         DocumentRead: {
             /** Filename */
@@ -2044,12 +2363,18 @@ export interface components {
             storage_key?: string | null;
             /** Uploaded By */
             uploaded_by?: string | null;
+            status: components["schemas"]["DocumentStatus"];
         };
         /**
          * DocumentSource
          * @enum {string}
          */
         DocumentSource: "upload" | "email" | "dealroom" | "external_link";
+        /**
+         * DocumentStatus
+         * @enum {string}
+         */
+        DocumentStatus: "pending" | "confirmed" | "rejected";
         /** DocumentUpdate */
         DocumentUpdate: {
             /** Filename */
@@ -2068,6 +2393,11 @@ export interface components {
             /** Person Id */
             person_id?: string | null;
         };
+        /**
+         * FollowUpStatus
+         * @enum {string}
+         */
+        FollowUpStatus: "none" | "needed" | "scheduled" | "complete";
         /** ForwardedEmailAttachment */
         ForwardedEmailAttachment: {
             /** Filename */
@@ -2118,6 +2448,13 @@ export interface components {
              */
             updated_at: string;
             status: components["schemas"]["FundStatus"];
+            /**
+             * Organization Id
+             * Format: uuid
+             */
+            organization_id: string;
+            /** Legal Entity Id */
+            legal_entity_id: string | null;
         };
         /**
          * FundStatus
@@ -2313,6 +2650,12 @@ export interface components {
             body?: string | null;
             /** Occurred At */
             occurred_at?: string | null;
+            /** Channel */
+            channel?: string | null;
+            /** @default internal */
+            direction: components["schemas"]["InteractionDirection"];
+            /** @default none */
+            follow_up_status: components["schemas"]["FollowUpStatus"];
             /** Company Id */
             company_id?: string | null;
             /** Person Id */
@@ -2320,6 +2663,11 @@ export interface components {
             /** Deal Id */
             deal_id?: string | null;
         };
+        /**
+         * InteractionDirection
+         * @enum {string}
+         */
+        InteractionDirection: "inbound" | "outbound" | "internal";
         /** InteractionRead */
         InteractionRead: {
             /** @default note */
@@ -2330,6 +2678,12 @@ export interface components {
             body?: string | null;
             /** Occurred At */
             occurred_at?: string | null;
+            /** Channel */
+            channel?: string | null;
+            /** @default internal */
+            direction: components["schemas"]["InteractionDirection"];
+            /** @default none */
+            follow_up_status: components["schemas"]["FollowUpStatus"];
             /** Company Id */
             company_id?: string | null;
             /** Person Id */
@@ -2353,6 +2707,8 @@ export interface components {
             updated_at: string;
             /** Archived At */
             archived_at?: string | null;
+            /** Created By Id */
+            created_by_id?: string | null;
             /** Source Email Id */
             source_email_id?: string | null;
             /** Original Sender */
@@ -2380,6 +2736,10 @@ export interface components {
             body?: string | null;
             /** Occurred At */
             occurred_at?: string | null;
+            /** Channel */
+            channel?: string | null;
+            direction?: components["schemas"]["InteractionDirection"] | null;
+            follow_up_status?: components["schemas"]["FollowUpStatus"] | null;
             /** Company Id */
             company_id?: string | null;
             /** Person Id */
@@ -2471,6 +2831,10 @@ export interface components {
             company_id: string;
             /** Deal Id */
             deal_id?: string | null;
+            /** Fund Name */
+            fund_name?: string | null;
+            /** Company Name */
+            company_name?: string | null;
         };
         /**
          * InvestmentStatus
@@ -2501,6 +2865,169 @@ export interface components {
             /** Fund Id */
             fund_id?: string | null;
         };
+        /** LegalEntityCreate */
+        LegalEntityCreate: {
+            /**
+             * Organization Id
+             * Format: uuid
+             */
+            organization_id: string;
+            /** Legal Name */
+            legal_name: string;
+            /** Display Name */
+            display_name?: string | null;
+            entity_type: components["schemas"]["LegalEntityType"];
+            /** Jurisdiction */
+            jurisdiction?: string | null;
+            /** Formation Date */
+            formation_date?: string | null;
+            /** External Id */
+            external_id?: string | null;
+            /**
+             * Base Currency
+             * @default USD
+             */
+            base_currency: string;
+            /** Extra Metadata */
+            extra_metadata?: {
+                [key: string]: unknown;
+            };
+        };
+        /** LegalEntityRead */
+        LegalEntityRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Archived At */
+            archived_at?: string | null;
+            /**
+             * Organization Id
+             * Format: uuid
+             */
+            organization_id: string;
+            /** Legal Name */
+            legal_name: string;
+            /** Display Name */
+            display_name: string | null;
+            entity_type: components["schemas"]["LegalEntityType"];
+            status: components["schemas"]["LegalEntityStatus"];
+            /** Jurisdiction */
+            jurisdiction: string | null;
+            /** Formation Date */
+            formation_date: string | null;
+            /** External Id */
+            external_id: string | null;
+            /** Base Currency */
+            base_currency: string;
+            /** Extra Metadata */
+            extra_metadata: {
+                [key: string]: unknown;
+            };
+        };
+        /** LegalEntityRelationshipCreate */
+        LegalEntityRelationshipCreate: {
+            /**
+             * Parent Entity Id
+             * Format: uuid
+             */
+            parent_entity_id: string;
+            /**
+             * Child Entity Id
+             * Format: uuid
+             */
+            child_entity_id: string;
+            relationship_type: components["schemas"]["LegalEntityRelationshipType"];
+            /**
+             * Effective From
+             * Format: date
+             */
+            effective_from: string;
+            /** Effective To */
+            effective_to?: string | null;
+        };
+        /** LegalEntityRelationshipRead */
+        LegalEntityRelationshipRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Parent Entity Id
+             * Format: uuid
+             */
+            parent_entity_id: string;
+            /**
+             * Child Entity Id
+             * Format: uuid
+             */
+            child_entity_id: string;
+            relationship_type: components["schemas"]["LegalEntityRelationshipType"];
+            /**
+             * Effective From
+             * Format: date
+             */
+            effective_from: string;
+            /** Effective To */
+            effective_to: string | null;
+        };
+        /**
+         * LegalEntityRelationshipType
+         * @enum {string}
+         */
+        LegalEntityRelationshipType: "owns" | "controls" | "manages" | "general_partner_of" | "feeds_into" | "other";
+        /**
+         * LegalEntityStatus
+         * @enum {string}
+         */
+        LegalEntityStatus: "active" | "inactive" | "dissolved";
+        /**
+         * LegalEntityType
+         * @enum {string}
+         */
+        LegalEntityType: "fund" | "general_partner" | "management_company" | "spv" | "blocker" | "feeder" | "warehousing" | "other";
+        /** LegalEntityUpdate */
+        LegalEntityUpdate: {
+            /** Legal Name */
+            legal_name?: string | null;
+            /** Display Name */
+            display_name?: string | null;
+            status?: components["schemas"]["LegalEntityStatus"] | null;
+            /** Jurisdiction */
+            jurisdiction?: string | null;
+            /** Formation Date */
+            formation_date?: string | null;
+            /** External Id */
+            external_id?: string | null;
+            /** Base Currency */
+            base_currency?: string | null;
+            /** Extra Metadata */
+            extra_metadata?: {
+                [key: string]: unknown;
+            } | null;
+        };
         /** NumericByKey */
         NumericByKey: {
             /** Key */
@@ -2508,6 +3035,290 @@ export interface components {
             /** Value */
             value: string | null;
         };
+        /**
+         * OperationalStatus
+         * @enum {string}
+         */
+        OperationalStatus: "operational" | "unclear" | "not_operational" | "unverified";
+        /** OrganizationCreate */
+        OrganizationCreate: {
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Institutional Owner */
+            institutional_owner?: string | null;
+            /**
+             * Base Currency
+             * @default USD
+             */
+            base_currency: string;
+            /**
+             * Timezone
+             * @default America/New_York
+             */
+            timezone: string;
+        };
+        /** OrganizationRead */
+        OrganizationRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Archived At */
+            archived_at?: string | null;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Institutional Owner */
+            institutional_owner: string | null;
+            /** Base Currency */
+            base_currency: string;
+            /** Timezone */
+            timezone: string;
+            status: components["schemas"]["OrganizationStatus"];
+        };
+        /**
+         * OrganizationStatus
+         * @enum {string}
+         */
+        OrganizationStatus: "active" | "inactive";
+        /** OrganizationUpdate */
+        OrganizationUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Institutional Owner */
+            institutional_owner?: string | null;
+            /** Base Currency */
+            base_currency?: string | null;
+            /** Timezone */
+            timezone?: string | null;
+            status?: components["schemas"]["OrganizationStatus"] | null;
+        };
+        /** OutreachCandidateListCreate */
+        OutreachCandidateListCreate: {
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Default Filters */
+            default_filters?: {
+                [key: string]: unknown;
+            };
+        };
+        /** OutreachCandidateListDetail */
+        OutreachCandidateListDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            status: components["schemas"]["OutreachCandidateListStatus"];
+            /** Default Filters */
+            default_filters?: {
+                [key: string]: unknown;
+            };
+            /** Created By Id */
+            created_by_id?: string | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Change History */
+            change_history?: {
+                [key: string]: unknown;
+            }[];
+            /** Items */
+            items?: components["schemas"]["OutreachCandidateListItemRead"][];
+        };
+        /** OutreachCandidateListItemCreate */
+        OutreachCandidateListItemCreate: {
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Person Id */
+            person_id?: string | null;
+            /** Assigned To Id */
+            assigned_to_id?: string | null;
+            /** @default new */
+            candidate_status: components["schemas"]["OutreachCandidateStatus"];
+            /** Rank Score */
+            rank_score?: number | null;
+            /** Rank Reasons */
+            rank_reasons?: unknown[];
+            /** Score Version */
+            score_version?: string | null;
+            /** Score Breakdown */
+            score_breakdown?: {
+                [key: string]: unknown;
+            };
+            /** Why This Company */
+            why_this_company?: string | null;
+            /** Change Reason */
+            change_reason?: string | null;
+        };
+        /** OutreachCandidateListItemRead */
+        OutreachCandidateListItemRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * List Id
+             * Format: uuid
+             */
+            list_id: string;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Person Id */
+            person_id?: string | null;
+            /** Assigned To Id */
+            assigned_to_id?: string | null;
+            candidate_status: components["schemas"]["OutreachCandidateStatus"];
+            /** Rank Score */
+            rank_score?: number | null;
+            /** Rank Reasons */
+            rank_reasons?: unknown[];
+            /** Score Version */
+            score_version?: string | null;
+            /** Score Breakdown */
+            score_breakdown?: {
+                [key: string]: unknown;
+            };
+            /** Why This Company */
+            why_this_company?: string | null;
+            /** Change History */
+            change_history?: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** OutreachCandidateListItemUpdate */
+        OutreachCandidateListItemUpdate: {
+            /** Assigned To Id */
+            assigned_to_id?: string | null;
+            candidate_status?: components["schemas"]["OutreachCandidateStatus"] | null;
+            /** Change Reason */
+            change_reason?: string | null;
+        };
+        /** OutreachCandidateListRead */
+        OutreachCandidateListRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            status: components["schemas"]["OutreachCandidateListStatus"];
+            /** Default Filters */
+            default_filters?: {
+                [key: string]: unknown;
+            };
+            /** Created By Id */
+            created_by_id?: string | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Change History */
+            change_history?: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * OutreachCandidateListStatus
+         * @enum {string}
+         */
+        OutreachCandidateListStatus: "active" | "completed" | "archived";
+        /** OutreachCandidateListUpdate */
+        OutreachCandidateListUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            status?: components["schemas"]["OutreachCandidateListStatus"] | null;
+            /** Change Reason */
+            change_reason?: string | null;
+        };
+        /** OutreachCandidateRead */
+        OutreachCandidateRead: {
+            company: components["schemas"]["CompanyRead"];
+            /** Score */
+            score: number;
+            /** Score Version */
+            score_version: string;
+            breakdown: components["schemas"]["CandidateScoreBreakdown"];
+            /** Why This Company */
+            why_this_company: string;
+            /** Warnings */
+            warnings?: string[];
+            /** Last Outreach At */
+            last_outreach_at?: string | null;
+            /**
+             * Follow Up Needed
+             * @default false
+             */
+            follow_up_needed: boolean;
+        };
+        /**
+         * OutreachCandidateStatus
+         * @enum {string}
+         */
+        OutreachCandidateStatus: "new" | "ready_to_contact" | "contacted" | "follow_up_needed" | "meeting_scheduled" | "review_needed" | "deferred" | "not_relevant";
         /** PaginatedResponse[AgentEventLogRead] */
         PaginatedResponse_AgentEventLogRead_: {
             /** Items */
@@ -2600,6 +3411,50 @@ export interface components {
         PaginatedResponse_InvestmentRead_: {
             /** Items */
             items: components["schemas"]["InvestmentRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** PaginatedResponse[LegalEntityRead] */
+        PaginatedResponse_LegalEntityRead_: {
+            /** Items */
+            items: components["schemas"]["LegalEntityRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** PaginatedResponse[OrganizationRead] */
+        PaginatedResponse_OrganizationRead_: {
+            /** Items */
+            items: components["schemas"]["OrganizationRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** PaginatedResponse[OutreachCandidateListRead] */
+        PaginatedResponse_OutreachCandidateListRead_: {
+            /** Items */
+            items: components["schemas"]["OutreachCandidateListRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** PaginatedResponse[OutreachCandidateRead] */
+        PaginatedResponse_OutreachCandidateRead_: {
+            /** Items */
+            items: components["schemas"]["OutreachCandidateRead"][];
             /** Total */
             total: number;
             /** Limit */
@@ -2872,6 +3727,10 @@ export interface components {
             upload_url: string;
             /** Storage Key */
             storage_key: string;
+            /** Fields */
+            fields: {
+                [key: string]: string;
+            };
         };
         /**
          * RelationshipStatus
@@ -3524,6 +4383,373 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_organizations_api_organizations_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponse_OrganizationRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_organization_api_organizations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrganizationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_organization_api_organizations__organization_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                organization_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_organization_api_organizations__organization_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                organization_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrganizationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_legal_entities_api_legal_entities_get: {
+        parameters: {
+            query: {
+                organization_id: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponse_LegalEntityRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_legal_entity_api_legal_entities_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalEntityCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalEntityRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_legal_entity_relationships_api_legal_entities_relationships_by_organization__organization_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                organization_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalEntityRelationshipRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_legal_entity_relationship_api_legal_entities_relationships_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalEntityRelationshipCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalEntityRelationshipRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_legal_entity_api_legal_entities__entity_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalEntityRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_legal_entity_api_legal_entities__entity_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalEntityUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalEntityRead"];
                 };
             };
             /** @description Validation Error */
@@ -4338,6 +5564,11 @@ export interface operations {
                 company_id?: string | null;
                 person_id?: string | null;
                 deal_id?: string | null;
+                interaction_type?: string | null;
+                channel?: string | null;
+                direction?: string | null;
+                follow_up_status?: string | null;
+                created_by_id?: string | null;
                 include_archived?: boolean;
             };
             header?: {
@@ -4505,6 +5736,272 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InteractionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_outreach_candidates_api_outreach_candidates_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                include_recently_contacted?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponse_OutreachCandidateRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_candidate_lists_api_outreach_candidates_lists_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                include_archived?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponse_OutreachCandidateListRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_candidate_list_api_outreach_candidates_lists_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OutreachCandidateListCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutreachCandidateListRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_candidate_list_api_outreach_candidates_lists__list_id__get: {
+        parameters: {
+            query?: {
+                include_archived?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                list_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutreachCandidateListDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_candidate_list_api_outreach_candidates_lists__list_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                list_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OutreachCandidateListUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutreachCandidateListRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_candidate_list_item_api_outreach_candidates_lists__list_id__items_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                list_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OutreachCandidateListItemCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutreachCandidateListItemRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_candidate_list_item_api_outreach_candidates_lists__list_id__items__item_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                list_id: string;
+                item_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OutreachCandidateListItemUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutreachCandidateListItemRead"];
                 };
             };
             /** @description Validation Error */
@@ -5900,6 +7397,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PresignedUploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_upload_api_documents__document_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                document_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_document_api_documents__document_id__download_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                document_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentDownloadResponse"];
                 };
             };
             /** @description Validation Error */

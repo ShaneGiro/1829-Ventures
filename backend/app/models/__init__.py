@@ -23,7 +23,10 @@ from app.models.import_batch import ImportBatch
 from app.models.import_row import ImportRow
 from app.models.interaction import Interaction
 from app.models.investment import Investment
+from app.models.legal_entity import LegalEntity, LegalEntityRelationship
 from app.models.notification import Notification
+from app.models.organization import Organization, OrganizationMembership
+from app.models.outreach_candidate_list import OutreachCandidateList, OutreachCandidateListItem
 from app.models.person import Person
 from app.models.portfolio_metric import PortfolioMetric
 from app.models.rubric import Rubric
@@ -44,6 +47,10 @@ __all__ = [
     "DiligenceChecklistItem",
     "DealStatus",
     "Fund",
+    "Organization",
+    "OrganizationMembership",
+    "LegalEntity",
+    "LegalEntityRelationship",
     "Investment",
     "PortfolioMetric",
     "Document",
@@ -57,4 +64,6 @@ __all__ = [
     "AgentEventLog",
     "AgentPolicy",
     "Notification",
+    "OutreachCandidateList",
+    "OutreachCandidateListItem",
 ]

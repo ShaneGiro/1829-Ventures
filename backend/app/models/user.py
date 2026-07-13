@@ -7,11 +7,16 @@ permission work but is not enforced in v1.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from sqlalchemy import Boolean, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.constants import Role
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
+
+if TYPE_CHECKING:
+    from app.models.organization import OrganizationMembership
 
 
 class User(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
@@ -28,6 +33,10 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     # Set only for the Ritchie agent identity; humans have no API key.
     is_agent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     api_key_hash: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+
+    organization_memberships: Mapped[list[OrganizationMembership]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<User {self.email} role={self.role}>"

@@ -8,11 +8,17 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.constants import FundStatus, InvestmentStatus, RelationshipStatus
+from app.core.constants import (
+    DEFAULT_RIT_ORGANIZATION_ID,
+    FundStatus,
+    InvestmentStatus,
+    RelationshipStatus,
+)
 from app.models.company import Company
 from app.models.company_contact import CompanyContact
 from app.models.deal import Deal
 from app.models.fund import Fund
+from app.models.organization import Organization
 from app.models.person import Person
 from app.models.rubric import Rubric
 
@@ -74,6 +80,17 @@ def test_soft_delete_keeps_row(db_session: Session) -> None:
 
 
 def test_seed_funds_idempotent(db_session: Session) -> None:
+    organization_id = uuid.UUID(DEFAULT_RIT_ORGANIZATION_ID)
+    if not db_session.get(Organization, organization_id):
+        db_session.add(
+            Organization(
+                id=organization_id,
+                name="1829 Ventures",
+                slug="rit-1829-ventures",
+                institutional_owner="Rochester Institute of Technology",
+            )
+        )
+        db_session.commit()
     for _ in range(2):
         for name in ("Beta", "Fund I"):
             if not db_session.scalar(select(Fund).where(Fund.name == name)):

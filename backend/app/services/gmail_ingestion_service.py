@@ -12,7 +12,13 @@ from email.utils import parseaddr, parsedate_to_datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import actor_from_user
-from app.core.constants import DocumentSource, InteractionType, RelationshipStatus
+from app.core.constants import (
+    DocumentSource,
+    FollowUpStatus,
+    InteractionDirection,
+    InteractionType,
+    RelationshipStatus,
+)
 from app.core.exceptions import ValidationError
 from app.integrations.minio_storage import get_document_storage
 from app.integrations.storage import DocumentStorage
@@ -75,6 +81,8 @@ async def ingest_forwarded_email(
 ) -> GmailIngestResult:
     interaction = Interaction(
         interaction_type=InteractionType.EMAIL,
+        direction=InteractionDirection.INBOUND,
+        follow_up_status=FollowUpStatus.NONE,
         summary="Forwarded email pending parse",
         body=payload.raw_message,
         occurred_at=payload.received_at or datetime.now(UTC),

@@ -17,3 +17,6 @@ class PermissionResource(StrEnum):
     AUTH = "auth"
     USER = "user"
     CRM = "crm"
+    ORGANIZATION = "organization"
+    LEGAL_ENTITY = "legal_entity"
+    FUND_OPERATIONS = "fund_operations"

@@ -193,7 +193,10 @@ async def confirm_upload(
 
     if rejection_reason:
         document.status = DocumentStatus.REJECTED
-        document.extra_metadata = {**document.extra_metadata, "rejection_reason": rejection_reason}
+        document.extra_metadata = {
+            **(document.extra_metadata or {}),
+            "rejection_reason": rejection_reason,
+        }
         storage_client.delete_object(storage_key=document.storage_key)
         await audit_service.record_update(
             session,

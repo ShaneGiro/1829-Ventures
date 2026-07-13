@@ -4,15 +4,12 @@ import {
   useFunds,
   useInvestments,
   usePortfolioMetrics,
-  usePortfolioSummary,
 } from "@/api/portfolioApi";
 import type { Investment, PortfolioMetric } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StateNotice } from "@/components/ui/state";
-import { formatCurrency, formatDecimal, formatInteger, formatPercent } from "@/lib/utils";
-
-const HARDCODED_RETURNED_CAPITAL = 0;
+import { formatCurrency, formatInteger, formatPercent } from "@/lib/utils";
 
 type InvestmentWithLabels = Investment & {
   company_name?: string | null;
@@ -29,12 +26,7 @@ type ConsolidatedCompanyRow = {
   latestInvestmentDate: string | null;
   valuation: number | null;
   ownershipPct: number | null;
-  portfolioValue: number | null;
-  returnedCapital: number;
-  tvpi: number | null;
-  rvpi: number | null;
-  dpi: number | null;
-  irr: number | null;
+  estimatedValue: number | null;
   reporting: string;
 };
 
@@ -49,12 +41,7 @@ type IndividualInvestmentRow = {
   instrument: string;
   valuation: number | null;
   ownershipPct: string | number | null | undefined;
-  portfolioValue: number | null;
-  returnedCapital: number;
-  tvpi: number | null;
-  rvpi: number | null;
-  dpi: number | null;
-  irr: number | null;
+  estimatedValue: number | null;
   reporting: string;
 };
 
@@ -74,11 +61,6 @@ type TableColumn<Row, Key extends string> = {
   className?: string;
 };
 
-type CashFlow = {
-  amount: number;
-  date: string;
-};
-
 type CompanyColumnKey =
   | "companyName"
   | "funds"
@@ -88,12 +70,7 @@ type CompanyColumnKey =
   | "latestInvestmentDate"
   | "valuation"
   | "ownershipPct"
-  | "portfolioValue"
-  | "returnedCapital"
-  | "tvpi"
-  | "rvpi"
-  | "dpi"
-  | "irr"
+  | "estimatedValue"
   | "reporting";
 
 type InvestmentColumnKey =
@@ -105,18 +82,16 @@ type InvestmentColumnKey =
   | "instrument"
   | "valuation"
   | "ownershipPct"
-  | "portfolioValue"
-  | "returnedCapital"
-  | "tvpi"
-  | "rvpi"
-  | "dpi"
-  | "irr"
+  | "estimatedValue"
   | "reporting";
 
 export function PortfolioDashboard() {
-  const { data: summary, isLoading, isError } = usePortfolioSummary();
   const { data: funds, isError: fundsError } = useFunds();
-  const { data: investments, isError: investmentsError } = useInvestments({ limit: 200 });
+  const {
+    data: investments,
+    isLoading,
+    isError: investmentsError,
+  } = useInvestments({ limit: 200 });
   const { data: metrics, isError: metricsError } = usePortfolioMetrics({ limit: 200 });
 
   const metricByInvestment = useMemo(() => {
@@ -207,35 +182,15 @@ export function PortfolioDashboard() {
   );
 
   const filteredSummary = useMemo(() => {
-    const totalPositionValue = filteredInvestments.reduce((sum, investment) => {
+    const totalEstimatedValue = filteredInvestments.reduce((sum, investment) => {
       return sum + (investmentPortfolioValue(investment, metricByInvestment.get(investment.id)) ?? 0);
     }, 0);
-    const totalReturnedCapital = sumValues(
-      filteredInvestments.map((investment) =>
-        investmentReturnedCapital(investment, metricByInvestment.get(investment.id))
-      )
-    );
-    const totalPortfolioValue = totalPositionValue + totalReturnedCapital;
-
     const totalInvestedAmount = sumValues(filteredInvestments.map((investment) => investment.amount));
-    const portfolioDpi = totalInvestedAmount ? totalReturnedCapital / totalInvestedAmount : null;
-    const portfolioTvpi = totalInvestedAmount ? totalPortfolioValue / totalInvestedAmount : null;
-    const portfolioRvpi = totalInvestedAmount
-      ? (totalPortfolioValue - totalReturnedCapital) / totalInvestedAmount
-      : null;
-    const portfolioIrr = calculateXirr(
-      cashFlowsForInvestments(filteredInvestments, metricByInvestment)
-    );
 
     return {
       totalInvestments: filteredInvestments.length,
       totalInvestedAmount,
-      totalPortfolioValue,
-      totalReturnedCapital,
-      portfolioDpi,
-      portfolioTvpi,
-      portfolioRvpi,
-      portfolioIrr,
+      totalEstimatedValue,
     };
   }, [filteredInvestments, metricByInvestment]);
 
@@ -263,21 +218,11 @@ export function PortfolioDashboard() {
         const latest = sorted[sorted.length - 1];
         const latestMetric = metricByInvestment.get(latest.id);
         const totalInvested = sumValues(sorted.map((investment) => investment.amount));
-        const positionValue = sumValues(
+        const estimatedValue = sumValues(
           sorted.map((investment) =>
             investmentPortfolioValue(investment, metricByInvestment.get(investment.id))
           )
         );
-        const returnedCapital = sumValues(
-          sorted.map((investment) =>
-            investmentReturnedCapital(investment, metricByInvestment.get(investment.id))
-          )
-        );
-        const portfolioValue = positionValue + returnedCapital;
-        const tvpi = totalInvested ? portfolioValue / totalInvested : null;
-        const rvpi = totalInvested ? (portfolioValue - returnedCapital) / totalInvested : null;
-        const dpi = totalInvested ? returnedCapital / totalInvested : null;
-        const irr = calculateXirr(cashFlowsForInvestments(sorted, metricByInvestment));
         const ownershipValues = sorted
           .map((investment) => toNumber(investment.ownership_pct))
           .filter((value): value is number => value !== null);
@@ -294,12 +239,7 @@ export function PortfolioDashboard() {
           latestInvestmentDate: latest.investment_date ?? null,
           valuation: investmentValuation(latest),
           ownershipPct: ownershipValues.length ? sumValues(ownershipValues) : null,
-          portfolioValue,
-          returnedCapital,
-          tvpi,
-          rvpi,
-          dpi,
-          irr,
+          estimatedValue,
           reporting: reportingLabel(latestMetric),
         };
       })
@@ -310,14 +250,7 @@ export function PortfolioDashboard() {
     () =>
       filteredInvestments.map((investment) => {
         const metric = metricByInvestment.get(investment.id);
-        const positionValue = investmentPortfolioValue(investment, metric);
-        const cost = toNumber(investment.amount);
-        const returnedCapital = investmentReturnedCapital(investment, metric);
-        const portfolioValue = (positionValue ?? 0) + returnedCapital;
-        const tvpi = cost ? portfolioValue / cost : null;
-        const rvpi = cost ? (portfolioValue - returnedCapital) / cost : null;
-        const dpi = cost ? returnedCapital / cost : null;
-        const irr = calculateXirr(cashFlowsForInvestment(investment, metric));
+        const estimatedValue = investmentPortfolioValue(investment, metric);
         return {
           id: investment.id,
           companyId: investment.company_id,
@@ -329,12 +262,7 @@ export function PortfolioDashboard() {
           instrument: investment.instrument ?? "",
           valuation: investmentValuation(investment),
           ownershipPct: investment.ownership_pct,
-          portfolioValue,
-          returnedCapital,
-          tvpi,
-          rvpi,
-          dpi,
-          irr,
+          estimatedValue,
           reporting: reportingLabel(metric),
         };
       }),
@@ -408,46 +336,11 @@ export function PortfolioDashboard() {
         sortValue: (row) => row.ownershipPct,
       },
       {
-        key: "portfolioValue",
-        label: "Portfolio value",
-        render: (row) => formatCurrency(row.portfolioValue),
-        filterValue: (row) => formatCurrency(row.portfolioValue),
-        sortValue: (row) => row.portfolioValue,
-      },
-      {
-        key: "returnedCapital",
-        label: "Returned capital",
-        render: (row) => formatCurrency(row.returnedCapital),
-        filterValue: (row) => formatCurrency(row.returnedCapital),
-        sortValue: (row) => row.returnedCapital,
-      },
-      {
-        key: "tvpi",
-        label: "TVPI",
-        render: (row) => formatDecimal(row.tvpi),
-        filterValue: (row) => formatDecimal(row.tvpi),
-        sortValue: (row) => row.tvpi,
-      },
-      {
-        key: "rvpi",
-        label: "RVPI",
-        render: (row) => formatDecimal(row.rvpi),
-        filterValue: (row) => formatDecimal(row.rvpi),
-        sortValue: (row) => row.rvpi,
-      },
-      {
-        key: "dpi",
-        label: "DPI",
-        render: (row) => formatDecimal(row.dpi),
-        filterValue: (row) => formatDecimal(row.dpi),
-        sortValue: (row) => row.dpi,
-      },
-      {
-        key: "irr",
-        label: "IRR",
-        render: (row) => formatPercent(row.irr),
-        filterValue: (row) => formatPercent(row.irr),
-        sortValue: (row) => row.irr,
+        key: "estimatedValue",
+        label: "Legacy estimated value",
+        render: (row) => formatCurrency(row.estimatedValue),
+        filterValue: (row) => formatCurrency(row.estimatedValue),
+        sortValue: (row) => row.estimatedValue,
       },
       {
         key: "reporting",
@@ -527,46 +420,11 @@ export function PortfolioDashboard() {
         sortValue: (row) => toNumber(row.ownershipPct),
       },
       {
-        key: "portfolioValue",
-        label: "Portfolio value",
-        render: (row) => formatCurrency(row.portfolioValue),
-        filterValue: (row) => formatCurrency(row.portfolioValue),
-        sortValue: (row) => row.portfolioValue,
-      },
-      {
-        key: "returnedCapital",
-        label: "Returned capital",
-        render: (row) => formatCurrency(row.returnedCapital),
-        filterValue: (row) => formatCurrency(row.returnedCapital),
-        sortValue: (row) => row.returnedCapital,
-      },
-      {
-        key: "tvpi",
-        label: "TVPI",
-        render: (row) => formatDecimal(row.tvpi),
-        filterValue: (row) => formatDecimal(row.tvpi),
-        sortValue: (row) => row.tvpi,
-      },
-      {
-        key: "rvpi",
-        label: "RVPI",
-        render: (row) => formatDecimal(row.rvpi),
-        filterValue: (row) => formatDecimal(row.rvpi),
-        sortValue: (row) => row.rvpi,
-      },
-      {
-        key: "dpi",
-        label: "DPI",
-        render: (row) => formatDecimal(row.dpi),
-        filterValue: (row) => formatDecimal(row.dpi),
-        sortValue: (row) => row.dpi,
-      },
-      {
-        key: "irr",
-        label: "IRR",
-        render: (row) => formatPercent(row.irr),
-        filterValue: (row) => formatPercent(row.irr),
-        sortValue: (row) => row.irr,
+        key: "estimatedValue",
+        label: "Legacy estimated value",
+        render: (row) => formatCurrency(row.estimatedValue),
+        filterValue: (row) => formatCurrency(row.estimatedValue),
+        sortValue: (row) => row.estimatedValue,
       },
       {
         key: "reporting",
@@ -636,8 +494,12 @@ export function PortfolioDashboard() {
           )}
         </div>
       </div>
+      <StateNotice
+        title="Legacy / unreconciled portfolio data"
+        description="Invested amounts and valuation marks have not yet been reconciled to Workday. Returned capital, TVPI, DPI, RVPI, and IRR are hidden until source cash flows are imported and reconciled."
+      />
       {isLoading && <StateNotice title="Loading portfolio" />}
-      {(isError || fundsError || investmentsError || metricsError) && (
+      {(fundsError || investmentsError || metricsError) && (
         <StateNotice
           title="Could not load portfolio"
           description="Refresh the page or check the API connection."
@@ -645,16 +507,14 @@ export function PortfolioDashboard() {
         />
       )}
 
-      {summary && (
+      {investments && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <Stat label="Investments" value={formatInteger(filteredSummary.totalInvestments)} />
           <Stat label="Invested" value={formatCurrency(filteredSummary.totalInvestedAmount)} />
-          <Stat label="Portfolio value" value={formatCurrency(filteredSummary.totalPortfolioValue)} />
-          <Stat label="Returned capital" value={formatCurrency(filteredSummary.totalReturnedCapital)} />
-          <Stat label="TVPI" value={formatDecimal(filteredSummary.portfolioTvpi)} />
-          <Stat label="RVPI" value={formatDecimal(filteredSummary.portfolioRvpi)} />
-          <Stat label="DPI" value={formatDecimal(filteredSummary.portfolioDpi)} />
-          <Stat label="IRR" value={formatPercent(filteredSummary.portfolioIrr)} />
+          <Stat
+            label="Legacy estimated value"
+            value={formatCurrency(filteredSummary.totalEstimatedValue)}
+          />
         </div>
       )}
 
@@ -910,99 +770,6 @@ function investmentPortfolioValue(
   const ownershipPct = toNumber(investment.ownership_pct);
   if (valuation === null || ownershipPct === null) return null;
   return (ownershipPct / 100) * valuation;
-}
-
-function investmentReturnedCapital(
-  investment: InvestmentWithLabels,
-  metric: PortfolioMetric | undefined
-): number {
-  const amount = toNumber(investment.amount);
-  const dpi = toNumber(metric?.dpi);
-  if (amount === null || dpi === null) return HARDCODED_RETURNED_CAPITAL;
-  return amount * dpi;
-}
-
-function cashFlowsForInvestments(
-  investments: InvestmentWithLabels[],
-  metricByInvestment: Map<string, PortfolioMetric>
-): CashFlow[] {
-  return investments.flatMap((investment) =>
-    cashFlowsForInvestment(investment, metricByInvestment.get(investment.id))
-  );
-}
-
-function cashFlowsForInvestment(
-  investment: InvestmentWithLabels,
-  metric: PortfolioMetric | undefined
-): CashFlow[] {
-  const amount = toNumber(investment.amount);
-  if (amount === null || amount <= 0 || !investment.investment_date) return [];
-
-  const terminalDate = metric?.reporting_date ?? todayIsoDate();
-  const returnedCapital = investmentReturnedCapital(investment, metric);
-  const positionValue = investmentPortfolioValue(investment, metric) ?? 0;
-
-  const flows: CashFlow[] = [{ amount: -amount, date: investment.investment_date }];
-  if (returnedCapital !== 0) flows.push({ amount: returnedCapital, date: terminalDate });
-  if (positionValue !== 0) flows.push({ amount: positionValue, date: terminalDate });
-  return flows;
-}
-
-function calculateXirr(cashFlows: CashFlow[]): number | null {
-  const validFlows = cashFlows
-    .map((flow) => ({ ...flow, time: Date.parse(`${flow.date}T00:00:00`) }))
-    .filter((flow) => Number.isFinite(flow.time) && flow.amount !== 0)
-    .sort((a, b) => a.time - b.time);
-
-  if (
-    validFlows.length < 2 ||
-    !validFlows.some((flow) => flow.amount < 0) ||
-    !validFlows.some((flow) => flow.amount > 0)
-  ) {
-    return null;
-  }
-
-  const firstTime = validFlows[0].time;
-  const years = validFlows.map((flow) => (flow.time - firstTime) / (365 * 24 * 60 * 60 * 1000));
-  if (years.every((year) => year === 0)) return null;
-
-  const npv = (rate: number) =>
-    validFlows.reduce(
-      (total, flow, index) => total + flow.amount / (1 + rate) ** years[index],
-      0
-    );
-
-  let low = -0.999999;
-  let high = 1;
-  let lowValue = npv(low);
-  let highValue = npv(high);
-
-  for (let i = 0; i < 100 && lowValue * highValue > 0; i += 1) {
-    high *= 2;
-    highValue = npv(high);
-    if (high > 1_000_000) return null;
-  }
-
-  if (lowValue * highValue > 0) return null;
-
-  for (let i = 0; i < 100; i += 1) {
-    const mid = (low + high) / 2;
-    const midValue = npv(mid);
-    if (Math.abs(midValue) < 0.000001) return mid;
-    if (lowValue * midValue <= 0) {
-      high = mid;
-      highValue = midValue;
-    } else {
-      low = mid;
-      lowValue = midValue;
-    }
-  }
-
-  return (low + high) / 2;
-}
-
-function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10);
 }
 
 function nextSort<Key extends string>(

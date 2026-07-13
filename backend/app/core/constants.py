@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from enum import StrEnum
 
+DEFAULT_RIT_ORGANIZATION_ID = "18290000-0000-4000-8000-000000000001"
+
 # ─── Sector taxonomy (1829's five focus areas) ────────────────────────────────
 SECTOR_TAXONOMY: tuple[str, ...] = (
     "Photonics, Imaging & Quantum",
@@ -253,6 +255,54 @@ class ImportRowStatus(StrEnum):
 class FundStatus(StrEnum):
     ACTIVE = "active"
     CLOSED = "closed"
+
+
+class OutreachCandidateListStatus(StrEnum):
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    ARCHIVED = "archived"
+
+
+class OutreachCandidateStatus(StrEnum):
+    NEW = "new"
+    READY_TO_CONTACT = "ready_to_contact"
+    CONTACTED = "contacted"
+    FOLLOW_UP_NEEDED = "follow_up_needed"
+    MEETING_SCHEDULED = "meeting_scheduled"
+    REVIEW_NEEDED = "review_needed"
+    DEFERRED = "deferred"
+    NOT_RELEVANT = "not_relevant"
+
+
+class OrganizationStatus(StrEnum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+
+
+class LegalEntityType(StrEnum):
+    FUND = "fund"
+    GENERAL_PARTNER = "general_partner"
+    MANAGEMENT_COMPANY = "management_company"
+    SPV = "spv"
+    BLOCKER = "blocker"
+    FEEDER = "feeder"
+    WAREHOUSING = "warehousing"
+    OTHER = "other"
+
+
+class LegalEntityStatus(StrEnum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    DISSOLVED = "dissolved"
+
+
+class LegalEntityRelationshipType(StrEnum):
+    OWNS = "owns"
+    CONTROLS = "controls"
+    MANAGES = "manages"
+    GENERAL_PARTNER_OF = "general_partner_of"
+    FEEDS_INTO = "feeds_into"
+    OTHER = "other"
 
 
 # ─── Diligence ────────────────────────────────────────────────────────────────

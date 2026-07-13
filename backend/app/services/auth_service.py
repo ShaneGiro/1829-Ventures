@@ -73,6 +73,7 @@ async def authenticate_oauth_profile(
         full_name=profile.full_name,
         avatar_url=profile.avatar_url,
     )
+    await user_repo.ensure_default_organization_membership(session, user)
     await session.commit()
     access_token = create_access_token(
         subject=str(user.id),

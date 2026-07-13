@@ -8,6 +8,8 @@ from typing import cast
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.constants import DEFAULT_RIT_ORGANIZATION_ID
+from app.models.organization import OrganizationMembership
 from app.models.user import User
 
 
@@ -72,3 +74,27 @@ async def upsert_human_user(
         user.is_active = True
     await session.flush()
     return user
+
+
+async def ensure_default_organization_membership(
+    session: AsyncSession, user: User
+) -> OrganizationMembership:
+    organization_id = uuid.UUID(DEFAULT_RIT_ORGANIZATION_ID)
+    stmt = select(OrganizationMembership).where(
+        OrganizationMembership.organization_id == organization_id,
+        OrganizationMembership.user_id == user.id,
+    )
+    membership = await session.scalar(stmt)
+    if membership is None:
+        membership = OrganizationMembership(
+            organization_id=organization_id,
+            user_id=user.id,
+            role=user.role,
+            is_active=True,
+        )
+        session.add(membership)
+    else:
+        membership.role = user.role
+        membership.is_active = user.is_active
+    await session.flush()
+    return membership
