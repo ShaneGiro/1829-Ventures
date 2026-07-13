@@ -8,15 +8,22 @@ truth. PostGIS `location` powers (deferred) map analytics; the pgvector
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from geoalchemy2 import Geometry
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Boolean, Float, String, Text
+from sqlalchemy import Boolean, DateTime, Float, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.constants import DEFAULT_SECTOR, EMBEDDING_DIM, RelationshipStatus
+from app.core.constants import (
+    DEFAULT_SECTOR,
+    EMBEDDING_DIM,
+    AlumniFounderStatus,
+    OperationalStatus,
+    RelationshipStatus,
+)
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
@@ -52,6 +59,34 @@ class Company(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     has_rit_nexus: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     rit_source_channel: Mapped[str | None] = mapped_column(String(255), nullable=True)
     thesis_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Ritchie enrichment is explicit, confidence-scored, and evidence-backed.
+    alumni_founder_status: Mapped[AlumniFounderStatus] = mapped_column(
+        String(16), default=AlumniFounderStatus.UNVERIFIED, nullable=False, index=True
+    )
+    alumni_founder_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    alumni_founder_evidence: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, default=dict, nullable=False
+    )
+    alumni_founder_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    operational_status: Mapped[OperationalStatus] = mapped_column(
+        String(24), default=OperationalStatus.UNVERIFIED, nullable=False, index=True
+    )
+    operational_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    operational_evidence: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, default=dict, nullable=False
+    )
+    operational_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    rubric_fit_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    thesis_alignment_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fit_score_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fit_score_reasons: Mapped[list[Any]] = mapped_column(JSONB, default=list, nullable=False)
+    fit_score_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    fit_scored_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Dealroom / import provenance.
     dealroom_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)

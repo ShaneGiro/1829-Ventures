@@ -41,6 +41,21 @@ class InvestmentStatus(StrEnum):
     MONITOR = "monitor"
 
 
+class AlumniFounderStatus(StrEnum):
+    ACTIVE = "active"
+    UNCLEAR = "unclear"
+    INACTIVE = "inactive"
+    NOT_FOUND = "not_found"
+    UNVERIFIED = "unverified"
+
+
+class OperationalStatus(StrEnum):
+    OPERATIONAL = "operational"
+    UNCLEAR = "unclear"
+    NOT_OPERATIONAL = "not_operational"
+    UNVERIFIED = "unverified"
+
+
 # Seed pipeline board stages, in display order. Stored in the deal_status table so
 # they can be reordered/extended at runtime without a code change.
 SEED_DEAL_STATUSES: tuple[str, ...] = (
@@ -129,6 +144,19 @@ class InteractionType(StrEnum):
     TOUCHPOINT = "touchpoint"
 
 
+class InteractionDirection(StrEnum):
+    INBOUND = "inbound"
+    OUTBOUND = "outbound"
+    INTERNAL = "internal"
+
+
+class FollowUpStatus(StrEnum):
+    NONE = "none"
+    NEEDED = "needed"
+    SCHEDULED = "scheduled"
+    COMPLETE = "complete"
+
+
 # ─── Tasks ────────────────────────────────────────────────────────────────────
 class TaskStatus(StrEnum):
     OPEN = "open"
@@ -157,6 +185,44 @@ class DocumentSource(StrEnum):
     EMAIL = "email"
     DEALROOM = "dealroom"
     EXTERNAL_LINK = "external_link"
+
+
+class DocumentStatus(StrEnum):
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    REJECTED = "rejected"
+
+
+ALLOWED_DOCUMENT_EXTENSIONS = frozenset(
+    {
+        ".csv",
+        ".doc",
+        ".docx",
+        ".jpeg",
+        ".jpg",
+        ".markdown",
+        ".md",
+        ".pdf",
+        ".png",
+        ".txt",
+        ".xls",
+        ".xlsx",
+    }
+)
+ALLOWED_DOCUMENT_MIME_TYPES = frozenset(
+    {
+        "application/msword",
+        "application/pdf",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "image/jpeg",
+        "image/png",
+        "text/csv",
+        "text/markdown",
+        "text/plain",
+    }
+)
 
 
 # ─── Notifications ────────────────────────────────────────────────────────────

@@ -11,7 +11,7 @@
 │   ├── FILE_STRUCTURE.md
 │   ├── APP_WORKFLOW_AND_FILES.md
 │   ├── MODEL_COMMS.md
-│   └── 1829 Ventures Screening Rubric.pdf
+│   └── ...                               # living product and implementation plans
 ├── Dealroom Data (6.10.26).csv
 ├── .env.example
 ├── docker-compose.yml

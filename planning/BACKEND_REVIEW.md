@@ -1,12 +1,13 @@
 # Backend Review & Hardening (Agent 11)
 
-Status of the backend after Agents 01–10, verified before frontend integration.
+Historical status after Agents 01–10, verified before frontend integration. See
+`planning/V1_3_EXECUTION.md` for the current v1.3 delivery and release gates.
 
-## Verification results (all green)
+## Historical verification results (all green at that point)
 - **Lint/format:** `ruff check .` + `ruff format --check` clean.
 - **Types:** `mypy` strict — no issues across 136 source files.
 - **Tests:** full suite passes (92 unit + integration), ~65% line coverage.
-- **Migrations:** single head (`38f12c67c5ce`). `alembic upgrade head` → `downgrade
+- **Migrations:** single head (`38f12c67c5ce` at the time). `alembic upgrade head` → `downgrade
   base` → `upgrade head` all succeed against a clean PostGIS+pgvector database.
 - **CI** (`.github/workflows/ci.yml`): ruff + mypy + pytest steps match the local
   gate; the Postgres service is the custom PostGIS+pgvector image.
@@ -50,5 +51,5 @@ Status of the backend after Agents 01–10, verified before frontend integration
   `tests/integration/`; deeper async route-level integration is a future add.
 
 ## Contract stability for frontend
-The API surface (OpenAPI at `/api/openapi.json`) is stable for Agents 20–23.
+The API surface (OpenAPI at `/api/openapi.json`) was stable for Agents 20–23.
 Auth: human JWT via httpOnly cookie / bearer; `/agent/*` is agent-key-only.

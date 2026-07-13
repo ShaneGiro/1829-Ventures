@@ -17,6 +17,7 @@ export interface CompanyDealroomData {
   normalized: Record<string, unknown>;
 }
 export type Person = Schemas["PersonRead"];
+export type PersonUpdate = Schemas["PersonUpdate"];
 export type Affiliation = Schemas["AffiliationRead"];
 export type Deal = Schemas["DealRead"];
 export type DealStatus = Schemas["DealStatusRead"];

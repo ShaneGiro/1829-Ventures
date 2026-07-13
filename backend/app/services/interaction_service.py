@@ -31,7 +31,7 @@ async def get_interaction(
 async def create_interaction(
     session: AsyncSession, payload: InteractionCreate, actor: User
 ) -> Interaction:
-    interaction = Interaction(**payload.model_dump(exclude_none=True))
+    interaction = Interaction(**payload.model_dump(exclude_none=True), created_by_id=actor.id)
     await interaction_repo.create_interaction(session, interaction)
     await audit_service.record_create(session, actor=actor_from_user(actor), entity=interaction)
     await session.commit()

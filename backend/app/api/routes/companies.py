@@ -62,8 +62,7 @@ async def list_companies(  # noqa: PLR0913 - filter surface intentionally wide
     dealroom_filter: list[str] | None = Query(
         default=None,
         description=(
-            "Repeated typed Dealroom filters encoded as "
-            "column<TAB>operator<TAB>value<TAB>value_to."
+            "Repeated typed Dealroom filters encoded as column<TAB>operator<TAB>value<TAB>value_to."
         ),
     ),
     dealroom_column: str | None = Query(

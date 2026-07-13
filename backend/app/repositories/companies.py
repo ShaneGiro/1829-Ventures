@@ -112,9 +112,7 @@ def company_filter_conditions(filters: CompanyFilters) -> list[ColumnElement[boo
         if predicate is None:
             continue
         conditions.append(
-            exists()
-            .where(ImportRow.matched_company_id == Company.id)
-            .where(predicate)
+            exists().where(ImportRow.matched_company_id == Company.id).where(predicate)
         )
     conditions.extend(filters.extra)
     return conditions

@@ -6,7 +6,7 @@ import uuid
 
 from pydantic import BaseModel
 
-from app.core.constants import DocumentSource
+from app.core.constants import DocumentSource, DocumentStatus
 from app.schemas.common import SoftDeleteRead
 
 
@@ -39,6 +39,7 @@ class DocumentUpdate(BaseModel):
 class DocumentRead(SoftDeleteRead, DocumentBase):
     storage_key: str | None = None
     uploaded_by: uuid.UUID | None = None
+    status: DocumentStatus
 
 
 class PresignedUploadRequest(BaseModel):
@@ -54,3 +55,9 @@ class PresignedUploadResponse(BaseModel):
     document_id: uuid.UUID
     upload_url: str
     storage_key: str
+    fields: dict[str, str]
+
+
+class DocumentDownloadResponse(BaseModel):
+    download_url: str
+    expires_in: int = 300

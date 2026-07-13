@@ -14,7 +14,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.constants import DocumentSource
+from app.core.constants import DocumentSource, DocumentStatus
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
 
@@ -30,6 +30,9 @@ class Document(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     external_link: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     source: Mapped[DocumentSource] = mapped_column(
         String(32), default=DocumentSource.UPLOAD, nullable=False
+    )
+    status: Mapped[DocumentStatus] = mapped_column(
+        String(16), default=DocumentStatus.CONFIRMED, nullable=False, index=True
     )
 
     company_id: Mapped[uuid.UUID | None] = mapped_column(

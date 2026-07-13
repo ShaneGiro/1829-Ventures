@@ -67,10 +67,12 @@ class Settings(BaseSettings):
 
     # ─── Object storage (S3-compatible: MinIO in v1, R2 in v2) ────────────────
     s3_endpoint_url: str = Field(default="http://localhost:9000")
+    s3_public_endpoint_url: str = Field(default="http://localhost:9000")
     s3_access_key: str = Field(default="minioadmin")
     s3_secret_key: str = Field(default="minioadmin")  # noqa: S106 - dev default
     s3_bucket_documents: str = Field(default="crm-documents")
     s3_region: str = Field(default="us-east-1")
+    s3_max_upload_mb: int = Field(default=50, ge=1, le=1024)
 
     # ─── Email (SendGrid) ─────────────────────────────────────────────────────
     sendgrid_api_key: str = Field(default="")

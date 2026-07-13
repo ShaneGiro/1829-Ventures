@@ -45,6 +45,7 @@ httpx>=0.28.0                    # async HTTP client (OAuth flow + test client)
 
 # ─── Object Storage ───────────────────────────────────────────────────────────
 boto3>=1.35.0                    # S3-compatible interface — MinIO in v1, R2 in v2
+python-magic>=0.4.27             # verify uploaded bytes instead of trusting browser MIME
 
 
 # ─── Email ────────────────────────────────────────────────────────────────────

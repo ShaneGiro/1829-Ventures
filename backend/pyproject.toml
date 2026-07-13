@@ -62,6 +62,8 @@ module = [
     "factory.*",
     "celery.*",
     "openpyxl.*",
+    "magic",
+    "magic.*",
 ]
 ignore_missing_imports = true
 

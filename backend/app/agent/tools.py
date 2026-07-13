@@ -15,6 +15,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 from typing import Any, cast
 
@@ -22,7 +23,15 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import actor_from_user
-from app.core.constants import InteractionType, PolicyState, TaskPriority
+from app.core.constants import (
+    AlumniFounderStatus,
+    FollowUpStatus,
+    InteractionDirection,
+    InteractionType,
+    OperationalStatus,
+    PolicyState,
+    TaskPriority,
+)
 from app.core.exceptions import NotFoundError
 from app.models.interaction import Interaction
 from app.models.investment import Investment
@@ -31,9 +40,10 @@ from app.models.task import Task
 from app.models.user import User
 from app.repositories import base
 from app.repositories import companies as company_repo
+from app.repositories import documents as document_repo
 from app.repositories import interactions as interaction_repo
 from app.repositories import tasks as task_repo
-from app.services import audit_service, search_service
+from app.services import audit_service, outreach_candidate_service, search_service
 
 ToolKind = str  # "read" | "write"
 
@@ -102,6 +112,41 @@ class UpdateRubricScoreInput(BaseModel):
     rubric_id: uuid.UUID
     field_name: str
     score: int = Field(ge=1, le=5)
+
+
+class ListCompanyDocumentsInput(BaseModel):
+    company_id: uuid.UUID
+    limit: int = Field(default=25, ge=1, le=100)
+
+
+class ListOutreachCandidatesInput(BaseModel):
+    limit: int = Field(default=25, ge=1, le=100)
+
+
+class LogOutreachInput(BaseModel):
+    company_id: uuid.UUID
+    person_id: uuid.UUID | None = None
+    summary: str = Field(min_length=1, max_length=512)
+    body: str | None = None
+    channel: str = Field(min_length=1, max_length=32)
+    occurred_at: datetime | None = None
+    follow_up_status: FollowUpStatus = FollowUpStatus.NONE
+
+
+class UpdateCompanyEnrichmentInput(BaseModel):
+    company_id: uuid.UUID
+    alumni_founder_status: AlumniFounderStatus | None = None
+    alumni_founder_confidence: float | None = Field(default=None, ge=0, le=1)
+    alumni_founder_evidence: dict[str, Any] | None = None
+    alumni_founder_verified_at: datetime | None = None
+    operational_status: OperationalStatus | None = None
+    operational_confidence: float | None = Field(default=None, ge=0, le=1)
+    operational_evidence: dict[str, Any] | None = None
+    operational_verified_at: datetime | None = None
+    rubric_fit_score: float | None = Field(default=None, ge=0, le=100)
+    thesis_alignment_score: float | None = Field(default=None, ge=0, le=100)
+    fit_score_confidence: float | None = Field(default=None, ge=0, le=1)
+    fit_score_reasons: list[str] | None = None
 
 
 # ─── Handlers ─────────────────────────────────────────────────────────────────
@@ -243,6 +288,102 @@ async def _update_rubric_score(
     )
 
 
+async def _list_company_documents(
+    session: AsyncSession, payload: BaseModel, _actor: User
+) -> ToolResult:
+    assert isinstance(payload, ListCompanyDocumentsInput)
+    documents = await document_repo.list_documents(
+        session, limit=payload.limit, offset=0, company_id=payload.company_id
+    )
+    return ToolResult(
+        data=[
+            {
+                "document_id": str(document.id),
+                "filename": document.filename,
+                "content_type": document.content_type,
+                "status": document.status,
+            }
+            for document in documents
+        ]
+    )
+
+
+async def _log_outreach(session: AsyncSession, payload: BaseModel, actor: User) -> ToolResult:
+    assert isinstance(payload, LogOutreachInput)
+    interaction = Interaction(
+        interaction_type=InteractionType.TOUCHPOINT,
+        summary=payload.summary,
+        body=payload.body,
+        occurred_at=payload.occurred_at,
+        company_id=payload.company_id,
+        person_id=payload.person_id,
+        channel=payload.channel,
+        direction=InteractionDirection.OUTBOUND,
+        follow_up_status=payload.follow_up_status,
+        created_by_id=actor.id,
+        provenance={"source": "ritchie_mcp"},
+    )
+    await interaction_repo.create_interaction(session, interaction)
+    await audit_service.record_create(session, actor=actor_from_user(actor), entity=interaction)
+    return ToolResult(
+        data={"interaction_id": str(interaction.id)},
+        entity_type="interactions",
+        entity_id=interaction.id,
+        new_value={"summary": payload.summary, "channel": payload.channel},
+    )
+
+
+async def _update_company_enrichment(
+    session: AsyncSession, payload: BaseModel, actor: User
+) -> ToolResult:
+    assert isinstance(payload, UpdateCompanyEnrichmentInput)
+    company = await company_repo.get_company(session, payload.company_id)
+    if company is None:
+        raise NotFoundError("Company not found")
+    updates = payload.model_dump(exclude={"company_id"}, exclude_none=True)
+    changes: dict[str, tuple[Any, Any]] = {}
+    for field_name, value in updates.items():
+        old_value = getattr(company, field_name)
+        if old_value != value:
+            setattr(company, field_name, value)
+            changes[field_name] = (old_value, value)
+    if changes:
+        await audit_service.record_update(
+            session, actor=actor_from_user(actor), entity=company, changes=changes
+        )
+    return ToolResult(
+        data={"company_id": str(company.id), "updated_fields": sorted(changes)},
+        entity_type="companies",
+        entity_id=company.id,
+        old_value={name: old for name, (old, _new) in changes.items()},
+        new_value={name: new for name, (_old, new) in changes.items()},
+    )
+
+
+async def _list_outreach_candidates(
+    session: AsyncSession, payload: BaseModel, _actor: User
+) -> ToolResult:
+    assert isinstance(payload, ListOutreachCandidatesInput)
+    items, total = await outreach_candidate_service.list_candidates(
+        session, limit=payload.limit, offset=0
+    )
+    return ToolResult(
+        data={
+            "total": total,
+            "items": [
+                {
+                    "company_id": str(item.company.id),
+                    "company_name": item.company.name,
+                    "score": item.score,
+                    "why_this_company": item.why_this_company,
+                    "warnings": item.warnings,
+                }
+                for item in items
+            ],
+        }
+    )
+
+
 # ─── Registry ─────────────────────────────────────────────────────────────────
 _TOOLS: tuple[AgentTool, ...] = (
     AgentTool(
@@ -297,6 +438,40 @@ _TOOLS: tuple[AgentTool, ...] = (
         handler=_update_rubric_score,
         default_state=PolicyState.BLOCKED,
         entity_type="rubrics",
+    ),
+    AgentTool(
+        name="list_company_documents",
+        description="List confirmed document metadata attached to a company.",
+        kind="read",
+        input_model=ListCompanyDocumentsInput,
+        handler=_list_company_documents,
+        default_state=PolicyState.AUTHORIZED,
+    ),
+    AgentTool(
+        name="log_outreach",
+        description="Record an outbound company/person touch with channel and follow-up state.",
+        kind="write",
+        input_model=LogOutreachInput,
+        handler=_log_outreach,
+        default_state=PolicyState.AUTHORIZED,
+        entity_type="interactions",
+    ),
+    AgentTool(
+        name="update_company_enrichment",
+        description="Record evidence-backed founder, operational, and fit-score enrichment.",
+        kind="write",
+        input_model=UpdateCompanyEnrichmentInput,
+        handler=_update_company_enrichment,
+        default_state=PolicyState.AUTHORIZED,
+        entity_type="companies",
+    ),
+    AgentTool(
+        name="list_outreach_candidates",
+        description="List ranked, explainable outreach candidates.",
+        kind="read",
+        input_model=ListOutreachCandidatesInput,
+        handler=_list_outreach_candidates,
+        default_state=PolicyState.AUTHORIZED,
     ),
 )
 

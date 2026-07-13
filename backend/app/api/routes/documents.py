@@ -12,6 +12,7 @@ from app.repositories import documents as document_repo
 from app.schemas.common import PaginatedResponse
 from app.schemas.document import (
     DocumentCreate,
+    DocumentDownloadResponse,
     DocumentRead,
     DocumentUpdate,
     PresignedUploadRequest,
@@ -73,12 +74,31 @@ async def create_presigned_upload(
     payload: PresignedUploadRequest, db: DbSession, current_user: CurrentUser
 ) -> PresignedUploadResponse:
     require_permission(current_user, PermissionAction.CREATE, PermissionResource.CRM)
-    document, upload_url = await document_service.create_presigned_upload(db, payload, current_user)
+    document, upload = await document_service.create_presigned_upload(db, payload, current_user)
     return PresignedUploadResponse(
         document_id=document.id,
-        upload_url=upload_url,
+        upload_url=upload.upload_url,
         storage_key=document.storage_key or "",
+        fields=upload.fields,
     )
+
+
+@router.post("/{document_id}/confirm", response_model=DocumentRead)
+async def confirm_upload(
+    document_id: uuid.UUID, db: DbSession, current_user: CurrentUser
+) -> DocumentRead:
+    require_permission(current_user, PermissionAction.CREATE, PermissionResource.CRM)
+    document = await document_service.confirm_upload(db, document_id, current_user)
+    return DocumentRead.model_validate(document)
+
+
+@router.get("/{document_id}/download", response_model=DocumentDownloadResponse)
+async def download_document(
+    document_id: uuid.UUID, db: DbSession, current_user: CurrentUser
+) -> DocumentDownloadResponse:
+    require_permission(current_user, PermissionAction.READ, PermissionResource.CRM)
+    download_url = await document_service.create_download_url(db, document_id)
+    return DocumentDownloadResponse(download_url=download_url)
 
 
 @router.get("/{document_id}", response_model=DocumentRead)

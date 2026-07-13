@@ -10,8 +10,8 @@ from unittest.mock import AsyncMock
 import pytest
 
 from app.core.audit import AuditActor
-from app.core.constants import ActorType, RelationshipStatus
-from app.integrations.storage import PresignedUpload
+from app.core.constants import ActorType, DocumentStatus, RelationshipStatus
+from app.integrations.storage import ObjectMetadata, PresignedUpload
 from app.models.audit_log import AuditLog
 from app.models.company import Company
 from app.models.company_contact import CompanyContact
@@ -191,16 +191,19 @@ async def test_presigned_upload_creates_document_metadata_and_storage_key(
             *,
             storage_key: str,
             content_type: str | None,
+            max_size_bytes: int,
             expires_in: int = 3600,
         ) -> PresignedUpload:
             assert content_type == "application/pdf"
+            assert max_size_bytes == 50 * 1024**2
             assert expires_in == 3600
             return PresignedUpload(
                 upload_url=f"https://minio.test/{storage_key}",
                 storage_key=storage_key,
+                fields={"key": storage_key},
             )
 
-    document, upload_url = await document_service.create_presigned_upload(
+    document, upload = await document_service.create_presigned_upload(
         session,
         PresignedUploadRequest(filename="pitch/deck.pdf", content_type="application/pdf"),
         user,
@@ -208,9 +211,90 @@ async def test_presigned_upload_creates_document_metadata_and_storage_key(
     )
 
     assert document.storage_key == f"documents/{document.id}/pitch_deck.pdf"
-    assert upload_url == f"https://minio.test/{document.storage_key}"
+    assert document.status == DocumentStatus.PENDING
+    assert upload.upload_url == f"https://minio.test/{document.storage_key}"
+    assert upload.fields == {"key": document.storage_key}
     audit_create.assert_awaited_once()
     assert session.committed is True
+
+
+@pytest.mark.asyncio
+async def test_confirm_upload_records_verified_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    user = actor()
+    session = FakeSession()
+    document = Document(
+        id=uuid.uuid4(),
+        filename="deck.pdf",
+        storage_key="documents/deck.pdf",
+        status=DocumentStatus.PENDING,
+    )
+    monkeypatch.setattr(document_service, "get_document", AsyncMock(return_value=document))
+    monkeypatch.setattr(document_service, "_sniff_content_type", lambda _body: "application/pdf")
+    audit_update = AsyncMock()
+    monkeypatch.setattr(document_service.audit_service, "record_update", audit_update)
+
+    class FakeStorage:
+        def head_object(self, *, storage_key: str) -> ObjectMetadata:
+            assert storage_key == document.storage_key
+            return ObjectMetadata(size_bytes=1234, content_type="application/pdf")
+
+        def read_object_prefix(self, *, storage_key: str, size: int = 8192) -> bytes:
+            assert storage_key == document.storage_key
+            assert size == 8192
+            return b"%PDF-1.7"
+
+        def delete_object(self, *, storage_key: str) -> None:
+            raise AssertionError(f"Unexpected deletion of {storage_key}")
+
+    confirmed = await document_service.confirm_upload(
+        session, document.id, user, storage=FakeStorage()
+    )
+
+    assert confirmed.status == DocumentStatus.CONFIRMED
+    assert confirmed.size_bytes == 1234
+    assert confirmed.content_type == "application/pdf"
+    audit_update.assert_awaited_once()
+    assert session.committed is True
+
+
+@pytest.mark.asyncio
+async def test_confirm_upload_rejects_mismatched_extension_and_content(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user = actor()
+    session = FakeSession()
+    document = Document(
+        id=uuid.uuid4(),
+        filename="not-an-image.png",
+        storage_key="documents/not-an-image.png",
+        status=DocumentStatus.PENDING,
+    )
+    monkeypatch.setattr(document_service, "get_document", AsyncMock(return_value=document))
+    monkeypatch.setattr(document_service, "_sniff_content_type", lambda _body: "application/pdf")
+    monkeypatch.setattr(document_service.audit_service, "record_update", AsyncMock())
+
+    class FakeStorage:
+        deleted = False
+
+        def head_object(self, *, storage_key: str) -> ObjectMetadata:
+            return ObjectMetadata(size_bytes=1234, content_type="application/pdf")
+
+        def read_object_prefix(self, *, storage_key: str, size: int = 8192) -> bytes:
+            return b"%PDF-1.7"
+
+        def delete_object(self, *, storage_key: str) -> None:
+            self.deleted = True
+
+    storage = FakeStorage()
+    with pytest.raises(document_service.ValidationError, match="failed server-side validation"):
+        await document_service.confirm_upload(session, document.id, user, storage=storage)
+
+    assert storage.deleted is True
+    assert document.status == DocumentStatus.REJECTED
+    assert (
+        document.extra_metadata["rejection_reason"]
+        == "extension_content_type_mismatch:application/pdf"
+    )
 
 
 @pytest.mark.asyncio

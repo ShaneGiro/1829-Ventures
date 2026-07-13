@@ -26,6 +26,11 @@ async def list_interactions(
     company_id: uuid.UUID | None = None,
     person_id: uuid.UUID | None = None,
     deal_id: uuid.UUID | None = None,
+    interaction_type: str | None = None,
+    channel: str | None = None,
+    direction: str | None = None,
+    follow_up_status: str | None = None,
+    created_by_id: uuid.UUID | None = None,
     include_archived: bool = False,
 ) -> PaginatedResponse[InteractionRead]:
     require_permission(current_user, PermissionAction.READ, PermissionResource.CRM)
@@ -36,6 +41,11 @@ async def list_interactions(
         company_id=company_id,
         person_id=person_id,
         deal_id=deal_id,
+        interaction_type=interaction_type,
+        channel=channel,
+        direction=direction,
+        follow_up_status=follow_up_status,
+        created_by_id=created_by_id,
         include_archived=include_archived,
     )
     total = await interaction_repo.count_interactions(
@@ -43,6 +53,11 @@ async def list_interactions(
         company_id=company_id,
         person_id=person_id,
         deal_id=deal_id,
+        interaction_type=interaction_type,
+        channel=channel,
+        direction=direction,
+        follow_up_status=follow_up_status,
+        created_by_id=created_by_id,
         include_archived=include_archived,
     )
     return PaginatedResponse(

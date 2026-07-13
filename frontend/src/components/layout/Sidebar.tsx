@@ -8,6 +8,8 @@ import {
   Bot,
   CheckSquare,
   PieChart,
+  Send,
+  ListChecks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +19,8 @@ const NAV = [
   { to: "/people", label: "People", icon: Users },
   { to: "/deals", label: "Pipeline", icon: Briefcase },
   { to: "/tasks", label: "Tasks", icon: CheckSquare },
+  { to: "/outreach", label: "Outreach", icon: Send },
+  { to: "/outreach-candidates", label: "Candidates", icon: ListChecks },
   { to: "/portfolio", label: "Portfolio", icon: PieChart },
   { to: "/imports", label: "Imports", icon: Upload },
   { to: "/ritchie", label: "Ritchie", icon: Bot },

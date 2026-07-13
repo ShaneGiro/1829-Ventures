@@ -17,7 +17,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.constants import EMBEDDING_DIM, InteractionType
+from app.core.constants import EMBEDDING_DIM, FollowUpStatus, InteractionDirection, InteractionType
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
@@ -33,6 +33,19 @@ class Interaction(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     body: Mapped[str | None] = mapped_column(Text, nullable=True)
     occurred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    channel: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    direction: Mapped[InteractionDirection] = mapped_column(
+        String(16), default=InteractionDirection.INTERNAL, nullable=False, index=True
+    )
+    follow_up_status: Mapped[FollowUpStatus] = mapped_column(
+        String(16), default=FollowUpStatus.NONE, nullable=False, index=True
+    )
+    created_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # Optional links — an interaction can attach to a company, person, and/or deal.
     company_id: Mapped[uuid.UUID | None] = mapped_column(

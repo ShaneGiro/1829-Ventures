@@ -22,6 +22,7 @@ from app.api.routes import (
     imports,
     interactions,
     investments,
+    outreach_candidates,
     people,
     portfolio_metrics,
     tasks,
@@ -37,6 +38,11 @@ api_router.include_router(people.router, prefix="/people", tags=["people"])
 api_router.include_router(people.contacts_router, prefix="/company-contacts", tags=["people"])
 api_router.include_router(people.affiliations_router, prefix="/affiliations", tags=["people"])
 api_router.include_router(interactions.router, prefix="/interactions", tags=["interactions"])
+api_router.include_router(
+    outreach_candidates.router,
+    prefix="/outreach-candidates",
+    tags=["outreach-candidates"],
+)
 api_router.include_router(deals.router, prefix="/deals", tags=["deals"])
 api_router.include_router(deal_statuses.router, prefix="/deal-statuses", tags=["deal-statuses"])
 api_router.include_router(imports.router, prefix="/imports", tags=["imports"])

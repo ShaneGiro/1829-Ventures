@@ -6,7 +6,7 @@ FROM python:3.12-slim AS base
 #   - build-essential + libpq-dev: build psycopg2 / asyncpg if wheels are missing
 #   - curl: container healthchecks
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential libpq-dev curl \
+    && apt-get install -y --no-install-recommends build-essential libpq-dev curl libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONUNBUFFERED=1 \

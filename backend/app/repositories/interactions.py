@@ -99,6 +99,11 @@ async def list_interactions(
     company_id: uuid.UUID | None = None,
     person_id: uuid.UUID | None = None,
     deal_id: uuid.UUID | None = None,
+    interaction_type: str | None = None,
+    channel: str | None = None,
+    direction: str | None = None,
+    follow_up_status: str | None = None,
+    created_by_id: uuid.UUID | None = None,
     include_archived: bool = False,
 ) -> list[Interaction]:
     stmt = select(Interaction)
@@ -110,6 +115,16 @@ async def list_interactions(
         stmt = stmt.where(Interaction.person_id == person_id)
     if deal_id is not None:
         stmt = stmt.where(Interaction.deal_id == deal_id)
+    if interaction_type is not None:
+        stmt = stmt.where(Interaction.interaction_type == interaction_type)
+    if channel is not None:
+        stmt = stmt.where(Interaction.channel == channel)
+    if direction is not None:
+        stmt = stmt.where(Interaction.direction == direction)
+    if follow_up_status is not None:
+        stmt = stmt.where(Interaction.follow_up_status == follow_up_status)
+    if created_by_id is not None:
+        stmt = stmt.where(Interaction.created_by_id == created_by_id)
     stmt = stmt.order_by(Interaction.occurred_at.desc().nullslast(), Interaction.created_at.desc())
     stmt = stmt.limit(limit).offset(offset)
     return list(await session.scalars(stmt))
@@ -121,6 +136,11 @@ async def count_interactions(
     company_id: uuid.UUID | None = None,
     person_id: uuid.UUID | None = None,
     deal_id: uuid.UUID | None = None,
+    interaction_type: str | None = None,
+    channel: str | None = None,
+    direction: str | None = None,
+    follow_up_status: str | None = None,
+    created_by_id: uuid.UUID | None = None,
     include_archived: bool = False,
 ) -> int:
     from sqlalchemy import func
@@ -134,6 +154,16 @@ async def count_interactions(
         stmt = stmt.where(Interaction.person_id == person_id)
     if deal_id is not None:
         stmt = stmt.where(Interaction.deal_id == deal_id)
+    if interaction_type is not None:
+        stmt = stmt.where(Interaction.interaction_type == interaction_type)
+    if channel is not None:
+        stmt = stmt.where(Interaction.channel == channel)
+    if direction is not None:
+        stmt = stmt.where(Interaction.direction == direction)
+    if follow_up_status is not None:
+        stmt = stmt.where(Interaction.follow_up_status == follow_up_status)
+    if created_by_id is not None:
+        stmt = stmt.where(Interaction.created_by_id == created_by_id)
     return int(await session.scalar(stmt) or 0)
 
 

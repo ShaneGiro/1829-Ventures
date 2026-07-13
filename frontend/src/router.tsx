@@ -13,6 +13,8 @@ import { TaskList } from "@/pages/TaskList";
 import { ImportManager } from "@/pages/ImportManager";
 import { RitchiePage } from "@/pages/RitchiePage";
 import { PortfolioDashboard } from "@/pages/PortfolioDashboard";
+import { OutreachPage } from "@/pages/OutreachPage";
+import { OutreachCandidatesPage } from "@/pages/OutreachCandidatesPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -31,6 +33,8 @@ export const router = createBrowserRouter([
       { path: "people/:personId", element: <ContactDetail /> },
       { path: "deals", element: <PipelineBoard /> },
       { path: "tasks", element: <TaskList /> },
+      { path: "outreach", element: <OutreachPage /> },
+      { path: "outreach-candidates", element: <OutreachCandidatesPage /> },
       { path: "imports", element: <ImportManager /> },
       { path: "portfolio", element: <PortfolioDashboard /> },
       { path: "ritchie", element: <RitchiePage /> },

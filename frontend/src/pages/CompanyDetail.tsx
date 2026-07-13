@@ -7,10 +7,11 @@ import {
   useCompanyDealroomData,
   useUpdateCompany,
 } from "@/api/companies";
-import { useDocuments } from "@/api/documents";
+import type { Company, CompanyUpdate } from "@/api/types";
 import { useInteractions } from "@/api/interactions";
 import { useTasks } from "@/api/tasks";
 import { RubricEditor } from "@/components/company/RubricEditor";
+import { DocumentPanel } from "@/components/document/DocumentPanel";
 import { TaskCreateDialog } from "@/components/task/TaskCreateDialog";
 import { TaskItem } from "@/components/task/TaskItem";
 import { Badge } from "@/components/ui/badge";
@@ -64,7 +65,6 @@ export function CompanyDetail() {
   const { data: company, isLoading } = useCompany(companyId);
   const { data: dealroom } = useCompanyDealroomData(companyId);
   const { data: interactions } = useInteractions({ company_id: companyId, limit: 10 });
-  const { data: documents } = useDocuments({ company_id: companyId, limit: 10 });
   const updateCompany = useUpdateCompany(companyId ?? "");
 
   if (isLoading) return <StateNotice title="Loading company" />;
@@ -157,23 +157,7 @@ export function CompanyDetail() {
         </div>
 
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1 text-sm">
-              <Field label="Stage" value={company.stage || text(raw["Growth stage"])} />
-              <Field
-                label="Location"
-                value={[company.city, company.state, company.country].filter(Boolean).join(", ")}
-              />
-              <Field label="Domain" value={company.domain} />
-              <Field label="Source" value={company.source_system} />
-              <Field label="Dealroom ID" value={company.dealroom_id} />
-              <Field label="Import row" value={dealroom?.row_number?.toString()} />
-              <Field label="RIT nexus" value={company.has_rit_nexus ? "Yes" : "No"} />
-            </CardContent>
-          </Card>
+          <CompanyProfileCard company={company} importRow={dealroom?.row_number} />
 
           <Card>
             <CardHeader>
@@ -235,25 +219,93 @@ export function CompanyDetail() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Documents</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1">
-              {documents?.items.length ? (
-                documents.items.map((d) => (
-                  <div key={d.id} className="truncate text-sm">
-                    {d.filename}
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">No documents.</p>
-              )}
-            </CardContent>
-          </Card>
+          <DocumentPanel companyId={company.id} />
         </div>
       </div>
     </div>
+  );
+}
+
+function CompanyProfileCard({ company, importRow }: { company: Company; importRow?: number | null }) {
+  const updateCompany = useUpdateCompany(company.id);
+  const [isEditing, setIsEditing] = useState(false);
+  const [form, setForm] = useState<CompanyUpdate>({});
+
+  function beginEditing() {
+    setForm({
+      name: company.name,
+      website: company.website,
+      description: company.description,
+      sector: company.sector,
+      stage: company.stage,
+      city: company.city,
+      state: company.state,
+      country: company.country,
+      relationship_status: company.relationship_status,
+      has_rit_nexus: company.has_rit_nexus,
+      rit_source_channel: company.rit_source_channel,
+    });
+    setIsEditing(true);
+  }
+
+  function updateField(field: keyof CompanyUpdate, value: string) {
+    setForm((current) => ({ ...current, [field]: value || null }));
+  }
+
+  async function save() {
+    await updateCompany.mutateAsync(form);
+    setIsEditing(false);
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle>Profile</CardTitle>
+          <Button variant="outline" size="sm" onClick={isEditing ? () => setIsEditing(false) : beginEditing}>
+            {isEditing ? "Cancel" : "Edit"}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        {isEditing ? (
+          <>
+            {(["name", "website", "sector", "stage", "city", "state", "country", "rit_source_channel"] as const).map((field) => (
+              <label key={field} className="block space-y-1">
+                <span className="text-xs font-medium">{field.replaceAll("_", " ")}</span>
+                <Input value={String(form[field] ?? "")} onChange={(event) => updateField(field, event.target.value)} />
+              </label>
+            ))}
+            <label className="block space-y-1">
+              <span className="text-xs font-medium">Description</span>
+              <Textarea value={form.description ?? ""} onChange={(event) => updateField("description", event.target.value)} />
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={form.has_rit_nexus ?? false}
+                onChange={(event) => setForm((current) => ({ ...current, has_rit_nexus: event.target.checked }))}
+              />
+              RIT nexus
+            </label>
+            {updateCompany.error && <p className="text-destructive">{updateCompany.error.message}</p>}
+            <Button onClick={() => void save()} disabled={updateCompany.isPending}>
+              {updateCompany.isPending ? "Saving…" : "Save profile"}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Field label="Stage" value={company.stage} />
+            <Field label="Location" value={[company.city, company.state, company.country].filter(Boolean).join(", ")} />
+            <Field label="Domain" value={company.domain} />
+            <Field label="Source" value={company.source_system} />
+            <Field label="Dealroom ID" value={company.dealroom_id} />
+            <Field label="Import row" value={importRow?.toString()} />
+            <Field label="RIT nexus" value={company.has_rit_nexus ? "Yes" : "No"} />
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -349,22 +401,10 @@ function MetricExplorer({ series, years }: { series: MetricSeries[]; years: numb
 }
 
 function LineSeriesChart({ series, years }: { series: MetricSeries; years: number[] }) {
-  const byYear = new Map(series.points.map((point) => [point.year, point.value]));
-  const linePoints = interpolateLinePoints(years, series.points);
-  if (!linePoints.length) return <p className="text-sm text-muted-foreground">No values to chart.</p>;
-  const scale = chartScale(linePoints.map((point) => point.value));
-  const chartWidth = 1000;
-  const points = linePoints.map((point, index) => {
-    const x =
-      years.length === 1 ? chartWidth / 2 : (index / Math.max(years.length - 1, 1)) * chartWidth;
-    const y = valueToY(point.value, scale);
-    return { ...point, x, y };
-  });
-  const polyline = points.map((point) => `${point.x},${point.y}`).join(" ");
-  const actualPoints = points.filter((point) => byYear.has(point.year));
-
   const chartInnerRef = useRef<HTMLDivElement | null>(null);
   const [innerSize, setInnerSize] = useState({ w: 0, h: 0 });
+  const byYear = new Map(series.points.map((point) => [point.year, point.value]));
+  const linePoints = interpolateLinePoints(years, series.points);
 
   useEffect(() => {
     function measure() {
@@ -377,6 +417,18 @@ function LineSeriesChart({ series, years }: { series: MetricSeries; years: numbe
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
   }, []);
+
+  if (!linePoints.length) return <p className="text-sm text-muted-foreground">No values to chart.</p>;
+  const scale = chartScale(linePoints.map((point) => point.value));
+  const chartWidth = 1000;
+  const points = linePoints.map((point, index) => {
+    const x =
+      years.length === 1 ? chartWidth / 2 : (index / Math.max(years.length - 1, 1)) * chartWidth;
+    const y = valueToY(point.value, scale);
+    return { ...point, x, y };
+  });
+  const polyline = points.map((point) => `${point.x},${point.y}`).join(" ");
+  const actualPoints = points.filter((point) => byYear.has(point.year));
 
   const scaleX = innerSize.w && chartWidth ? innerSize.w / chartWidth : 1;
   const scaleY = innerSize.h ? innerSize.h / 100 : 1;
@@ -1202,7 +1254,7 @@ function splitInvestors(value: string): string[] {
 function formatMonthYear(value: string): string {
   if (!value) return value;
   const trimmed = value.trim();
-  const m = trimmed.match(/^([A-Za-z]{3})[\/-](\d{4})$/);
+  const m = trimmed.match(/^([A-Za-z]{3})[/-](\d{4})$/);
   if (m) {
     const month = m[1];
     return month[0].toUpperCase() + month.slice(1).toLowerCase() + " " + m[2];
@@ -1213,7 +1265,7 @@ function formatMonthYear(value: string): string {
 function formatChipValue(value: string, label?: string): string {
   if (!value) return value;
   const trimmed = value.trim();
-  const percentMatch = trimmed.match(/^([\d,\.\-]+)\s*%$/);
+  const percentMatch = trimmed.match(/^([\d,.-]+)\s*%$/);
   const numericStr = percentMatch ? percentMatch[1] : trimmed;
   const n = Number(numericStr.replace(/,/g, ""));
   if (Number.isFinite(n)) {
