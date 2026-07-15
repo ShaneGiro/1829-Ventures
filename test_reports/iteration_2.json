@@ -1,0 +1,28 @@
+{
+  "summary": "Iteration 2 testing (backend + frontend). Backend: 16/16 pytest cases pass — IRR compute, cash flow add/remove, investment PATCH, company PATCH persistence, LP CSV export, Dealroom CSV import (create + re-import updates). Frontend: Dashboard shows all 5 metrics (Deployed/DryPowder/MOIC/IRR/Investments), IRR displays '—' with 'add cash flows' subtext, LP export URL returns 200 text/csv with correct headers, Companies page has Import Dealroom button + dialog, real-time search filter, and pagination (prev/next). Company detail inline edit WORKS functionally (PATCH persists) but the read-state clickable elements have the WRONG data-testid: 'edit-edit-sector' etc. instead of the spec-required 'edit-sector' (double prefix from EditableField). The 'edit-sector' testid is only on the inner <input> when editing.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "CompanyDetail EditableField", "issue": "Read-state clickable button uses data-testid=`edit-{testid}` while parent already passes testid=`edit-sector`, yielding `edit-edit-sector` etc. Spec expects 'edit-sector','edit-round','edit-ask','edit-hq','edit-website','edit-lead','edit-source' on the clickable field.", "selector": "[data-testid=edit-edit-sector]", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_iteration2.py", "/app/test_reports/pytest/iteration2.xml"],
+  "action_items": [
+    "Fix EditableField in /app/frontend/src/pages/CompanyDetail.jsx line 210: change `data-testid={`edit-${testid}`}` to `data-testid={testid}` so read-state button matches spec (edit-sector, edit-round, edit-ask, edit-hq, edit-website, edit-lead, edit-source). The input already uses `data-testid={testid}` which will conflict — either give input a separate id like `${testid}-input` or rely on only one being in DOM at a time (currently only one is rendered based on `editing` state, so single testid works)."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 908 lines — consider splitting into routers (auth, companies, investments, imports, exports).",
+    "compute_xirr Newton iteration can fail to converge for pathological flows; consider bisection fallback (already returns None on non-convergence, which is fine).",
+    "import_dealroom: line 751 `ask_amount: last_amount * 1_000_000 if last_amount and (col(r, 'Last funding amount') == col(r, 'Last funding amount')) else existing.get('ask_amount')` — the `col==col` self-check is a no-op tautology; the intended NaN guard is not effective. Works OK because _parse_float already returns None on failure."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration2.py (new)"],
+  "success_rate": {"backend": "100%", "frontend": "90% (inline-edit testid mismatch)"},
+  "test_credentials": "admin@fund.com / admin123",
+  "seed_data_creation": "Test class fixtures create TEST_ prefixed companies/investments in Fund I and clean up after each class. Temporary QATestSector edit on Yumist reverted to 'food'.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Login testids are login-email-input / login-password-input / login-submit-button (not '-input'-less). Login redirects to '/', which renders Dashboard (Overview). Beta Fund has 911 companies (mostly 'sourced' from Dealroom). Yumist ID df7fff78-3cc1-43ec-a6e5-3fb26bb19d3a is a good Dealroom-imported company for detail-page tests. Inline-edit works but testid is 'edit-edit-{field}' in read-state; if E1 fixes it, retest with 'edit-{field}' selectors.",
+  "rca of the issue": "In CompanyDetail.jsx EditableField, the read-state <button> uses data-testid `edit-${testid}`. Since callers already pass testid='edit-sector', the resulting attribute becomes 'edit-edit-sector'. The intended interpretation of the spec is that the clickable field itself carries the 'edit-*' testid. Fix: change `data-testid={`edit-${testid}`}` to `data-testid={testid}` on the button (line 210). This is a HIGH priority spec-conformance bug (functionality works but automated tests using spec selectors would fail)."
+}

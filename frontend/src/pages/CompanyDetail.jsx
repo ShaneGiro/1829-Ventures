@@ -99,13 +99,43 @@ export default function CompanyDetail() {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-px bg-slate-800">
                 {/* Sidebar */}
                 <aside className="lg:col-span-1 bg-slate-950 p-6 space-y-5">
-                    <Info label="Sector" value={company.sector} />
-                    <Info label="Round" value={company.round_stage} />
-                    <Info label="Ask" value={formatMoney(company.ask_amount)} mono />
-                    <Info label="HQ" value={company.hq} />
-                    <Info label="Website" value={company.website} link />
-                    <Info label="Lead Partner" value={company.lead_partner} />
-                    <Info label="Source" value={company.source} />
+                    <EditableField testid="edit-sector" label="Sector" value={company.sector} onSave={(v) => updateCompany({ sector: v })} />
+                    <EditableField testid="edit-round" label="Round" value={company.round_stage} onSave={(v) => updateCompany({ round_stage: v })} />
+                    <EditableField testid="edit-ask" label="Ask ($)" mono value={company.ask_amount ? String(company.ask_amount) : ""} onSave={(v) => updateCompany({ ask_amount: v ? Number(v) : null })} />
+                    <EditableField testid="edit-hq" label="HQ" value={company.hq} onSave={(v) => updateCompany({ hq: v })} />
+                    <EditableField testid="edit-website" label="Website" value={company.website} onSave={(v) => updateCompany({ website: v })} />
+                    <EditableField testid="edit-lead" label="Lead Partner" value={company.lead_partner} onSave={(v) => updateCompany({ lead_partner: v })} />
+                    <EditableField testid="edit-source" label="Source" value={company.source} onSave={(v) => updateCompany({ source: v })} />
+
+                    {(company.dealroom_url || company.dealroom_total_funding_usd_m || company.dealroom_investors || company.dealroom_founders) && (
+                        <div className="pt-4 mt-4 border-t border-slate-800 space-y-3">
+                            <div className="text-[10px] uppercase tracking-[0.3em] text-indigo-400">Dealroom</div>
+                            {company.dealroom_url && (
+                                <div>
+                                    <div className="text-[10px] uppercase tracking-[0.25em] text-slate-500">Profile</div>
+                                    <a data-testid="dealroom-link" href={company.dealroom_url} target="_blank" rel="noreferrer" className="mt-1 block text-xs text-indigo-400 hover:text-indigo-300 transition-colors duration-150 break-all">{company.dealroom_url}</a>
+                                </div>
+                            )}
+                            {company.dealroom_total_funding_usd_m != null && (
+                                <Info label="Total funding (USDm)" value={String(company.dealroom_total_funding_usd_m)} mono />
+                            )}
+                            {company.dealroom_valuation_usd != null && (
+                                <Info label="DR Valuation ($)" value={formatMoney(company.dealroom_valuation_usd)} mono />
+                            )}
+                            {company.dealroom_founders && (
+                                <div>
+                                    <div className="text-[10px] uppercase tracking-[0.25em] text-slate-500">Founders</div>
+                                    <div className="mt-1 text-xs text-slate-300">{company.dealroom_founders}</div>
+                                </div>
+                            )}
+                            {company.dealroom_investors && (
+                                <div>
+                                    <div className="text-[10px] uppercase tracking-[0.25em] text-slate-500">Investors</div>
+                                    <div className="mt-1 text-xs text-slate-300 line-clamp-4">{company.dealroom_investors}</div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </aside>
 
                 {/* Tabs */}
@@ -153,6 +183,35 @@ function Info({ label, value, mono, link }) {
             <div className={`mt-1 text-sm ${mono ? "font-mono-data" : ""} text-slate-200`}>
                 {value ? (link ? <a href={value.startsWith("http") ? value : `https://${value}`} target="_blank" rel="noreferrer" className="text-indigo-400 hover:text-indigo-300 transition-colors duration-150 break-all">{value}</a> : value) : <span className="text-slate-600">—</span>}
             </div>
+        </div>
+    );
+}
+
+function EditableField({ label, value, onSave, mono, testid, placeholder }) {
+    const [editing, setEditing] = useState(false);
+    const [v, setV] = useState(value || "");
+    useEffect(() => { setV(value || ""); }, [value]);
+    const save = async () => { setEditing(false); if (v !== (value || "")) await onSave(v || null); };
+    return (
+        <div>
+            <div className="text-[10px] uppercase tracking-[0.25em] text-slate-500">{label}</div>
+            {editing ? (
+                <input
+                    data-testid={testid}
+                    autoFocus
+                    value={v}
+                    onChange={(e) => setV(e.target.value)}
+                    onBlur={save}
+                    onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") { setV(value || ""); setEditing(false); } }}
+                    placeholder={placeholder}
+                    className={`mt-1 w-full bg-slate-900 border border-slate-700 focus:border-indigo-500 outline-none px-2 py-1 text-sm ${mono ? "font-mono-data" : ""} text-slate-100`}
+                />
+            ) : (
+                <button data-testid={`edit-${testid}`} onClick={() => setEditing(true)}
+                        className={`mt-1 w-full text-left text-sm ${mono ? "font-mono-data" : ""} text-slate-200 hover:text-indigo-300 transition-colors duration-150 py-0.5 border-b border-transparent hover:border-slate-700`}>
+                    {value || <span className="text-slate-600">— click to add</span>}
+                </button>
+            )}
         </div>
     );
 }
@@ -336,7 +395,9 @@ function DiligencePanel({ companyId, fundId, items, reload }) {
 
 function InvestmentsPanel({ companyId, fundId, items, reload }) {
     const [open, setOpen] = useState(false);
+    const [expanded, setExpanded] = useState(null);
     const [form, setForm] = useState({ amount: "", round_stage: "", valuation: "", ownership_pct: "", close_date: "", board_seat: false, pro_rata: false, current_value: "", notes: "" });
+    const [flowForm, setFlowForm] = useState({ date: new Date().toISOString().slice(0, 10), amount: "", kind: "distribution" });
 
     const create = async () => {
         if (!form.amount) { toast.error("Amount required"); return; }
@@ -359,6 +420,26 @@ function InvestmentsPanel({ companyId, fundId, items, reload }) {
     };
 
     const remove = async (id) => { await api.delete(`/investments/${id}`); reload(); };
+
+    const updateMark = async (id, cv) => {
+        await api.patch(`/investments/${id}`, { current_value: cv === "" ? null : Number(cv) });
+        reload();
+    };
+
+    const addFlow = async (invId) => {
+        if (!flowForm.amount || !flowForm.date) { toast.error("Date and amount required"); return; }
+        let amt = Number(flowForm.amount);
+        if (flowForm.kind === "call" && amt > 0) amt = -amt;
+        if (flowForm.kind === "distribution" && amt < 0) amt = Math.abs(amt);
+        await api.post(`/investments/${invId}/cash-flows`, { date: flowForm.date, amount: amt, kind: flowForm.kind });
+        setFlowForm({ date: new Date().toISOString().slice(0, 10), amount: "", kind: "distribution" });
+        reload();
+    };
+
+    const removeFlow = async (invId, idx) => {
+        await api.delete(`/investments/${invId}/cash-flows/${idx}`);
+        reload();
+    };
 
     return (
         <div>
@@ -386,27 +467,108 @@ function InvestmentsPanel({ companyId, fundId, items, reload }) {
                 </Dialog>
             </div>
             {items.length === 0 ? <EmptyState title="No investment yet" description="Record the check size, round, valuation and terms when this deal closes." /> : (
-                <div className="border border-slate-800">
-                    <div className="grid grid-cols-12 px-4 py-2 border-b border-slate-800 text-[10px] uppercase tracking-[0.2em] text-slate-500 font-mono-data">
-                        <div className="col-span-2">Round</div>
-                        <div className="col-span-2 text-right">Amount</div>
-                        <div className="col-span-2 text-right">Valuation</div>
-                        <div className="col-span-2 text-right">Ownership</div>
-                        <div className="col-span-2">Close</div>
-                        <div className="col-span-1 text-right">Current</div>
-                        <div className="col-span-1"></div>
-                    </div>
-                    {items.map((i) => (
-                        <div key={i.id} className="grid grid-cols-12 items-center px-4 py-3 border-b border-slate-800 last:border-b-0 hover:bg-slate-900 transition-colors duration-150">
-                            <div className="col-span-2 text-sm text-slate-200">{i.round_stage || "—"}</div>
-                            <div className="col-span-2 text-right font-mono-data text-slate-50">{formatMoney(i.amount)}</div>
-                            <div className="col-span-2 text-right font-mono-data text-slate-400">{formatMoney(i.valuation)}</div>
-                            <div className="col-span-2 text-right font-mono-data text-slate-400">{i.ownership_pct != null ? `${i.ownership_pct}%` : "—"}</div>
-                            <div className="col-span-2 font-mono-data text-slate-400 text-sm">{i.close_date || "—"}</div>
-                            <div className="col-span-1 text-right font-mono-data text-emerald-400">{formatMoney(i.current_value)}</div>
-                            <div className="col-span-1 flex justify-end"><button data-testid={`delete-inv-${i.id}`} onClick={() => remove(i.id)} className="text-slate-600 hover:text-rose-400 transition-colors duration-150"><Trash size={14} /></button></div>
-                        </div>
-                    ))}
+                <div className="space-y-4">
+                    {items.map((i) => {
+                        const flows = i.cash_flows || [];
+                        const totalDist = flows.filter((f) => f.amount > 0).reduce((a, f) => a + f.amount, 0);
+                        const totalCalled = flows.filter((f) => f.amount < 0).reduce((a, f) => a + Math.abs(f.amount), 0);
+                        const cvOrAmt = i.current_value ?? i.amount;
+                        const moic = i.amount ? cvOrAmt / i.amount : 0;
+                        const isOpen = expanded === i.id;
+                        return (
+                            <div key={i.id} className="border border-slate-800">
+                                <div className="grid grid-cols-12 items-center px-4 py-3 border-b border-slate-800 hover:bg-slate-900 transition-colors duration-150">
+                                    <div className="col-span-2 text-sm text-slate-200">{i.round_stage || "—"}</div>
+                                    <div className="col-span-2 text-right font-mono-data text-slate-50">{formatMoney(i.amount)}</div>
+                                    <div className="col-span-2 text-right font-mono-data text-slate-400">{formatMoney(i.valuation)}</div>
+                                    <div className="col-span-2 text-right font-mono-data text-slate-400">{i.ownership_pct != null ? `${i.ownership_pct}%` : "—"}</div>
+                                    <div className="col-span-2 font-mono-data text-slate-400 text-sm">{i.close_date || "—"}</div>
+                                    <div className="col-span-1 text-right font-mono-data text-emerald-400">{formatMoney(i.current_value)}</div>
+                                    <div className="col-span-1 flex justify-end gap-2">
+                                        <button data-testid={`toggle-flows-${i.id}`} onClick={() => setExpanded(isOpen ? null : i.id)}
+                                                className="text-xs uppercase tracking-[0.2em] text-indigo-400 hover:text-indigo-300 transition-colors duration-150 px-2">
+                                            {isOpen ? "−" : "+"}
+                                        </button>
+                                        <button data-testid={`delete-inv-${i.id}`} onClick={() => remove(i.id)} className="text-slate-600 hover:text-rose-400 transition-colors duration-150"><Trash size={14} /></button>
+                                    </div>
+                                </div>
+                                {isOpen && (
+                                    <div className="p-4 bg-slate-900/40 space-y-4">
+                                        <div className="grid grid-cols-4 gap-px bg-slate-800">
+                                            <div className="bg-slate-950 p-3">
+                                                <div className="text-[10px] uppercase tracking-[0.25em] text-slate-500">Called</div>
+                                                <div className="font-mono-data text-lg text-slate-50 mt-1">{formatMoney(totalCalled || i.amount)}</div>
+                                            </div>
+                                            <div className="bg-slate-950 p-3">
+                                                <div className="text-[10px] uppercase tracking-[0.25em] text-slate-500">Distributed</div>
+                                                <div className="font-mono-data text-lg text-emerald-400 mt-1">{formatMoney(totalDist)}</div>
+                                            </div>
+                                            <div className="bg-slate-950 p-3">
+                                                <div className="text-[10px] uppercase tracking-[0.25em] text-slate-500">Current Mark</div>
+                                                <input
+                                                    data-testid={`inv-mark-${i.id}`}
+                                                    type="number"
+                                                    defaultValue={i.current_value ?? ""}
+                                                    onBlur={(e) => updateMark(i.id, e.target.value)}
+                                                    placeholder="0"
+                                                    className="mt-1 w-full bg-slate-900 border border-slate-800 focus:border-indigo-500 outline-none px-2 py-1 text-lg font-mono-data text-slate-50"
+                                                />
+                                            </div>
+                                            <div className="bg-slate-950 p-3">
+                                                <div className="text-[10px] uppercase tracking-[0.25em] text-slate-500">MOIC</div>
+                                                <div className={`font-mono-data text-lg mt-1 ${moic >= 1 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                    {i.amount ? `${moic.toFixed(2)}x` : "—"}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <div className="text-[10px] uppercase tracking-[0.3em] text-indigo-400 mb-2">Cash Flow Schedule</div>
+                                            {flows.length === 0 ? (
+                                                <div className="text-xs text-slate-500 mb-3">No flows yet. Add capital calls and distributions below.</div>
+                                            ) : (
+                                                <div className="border border-slate-800 mb-3">
+                                                    {flows.map((f, idx) => (
+                                                        <div key={idx} className="grid grid-cols-12 items-center px-3 py-2 border-b border-slate-800 last:border-b-0 hover:bg-slate-900 transition-colors duration-150">
+                                                            <div className="col-span-3 font-mono-data text-xs text-slate-300">{f.date}</div>
+                                                            <div className="col-span-3 text-xs uppercase tracking-[0.2em] text-slate-500">{f.kind || (f.amount < 0 ? "call" : "distribution")}</div>
+                                                            <div className={`col-span-5 text-right font-mono-data text-sm ${f.amount < 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                                                                {f.amount < 0 ? "−" : "+"}{formatMoney(Math.abs(f.amount))}
+                                                            </div>
+                                                            <div className="col-span-1 flex justify-end">
+                                                                <button data-testid={`del-flow-${i.id}-${idx}`} onClick={() => removeFlow(i.id, idx)} className="text-slate-600 hover:text-rose-400 transition-colors duration-150"><Trash size={12} /></button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            <div className="grid grid-cols-12 gap-2 items-end">
+                                                <div className="col-span-3">
+                                                    <Label className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Date</Label>
+                                                    <Input data-testid={`flow-date-${i.id}`} type="date" value={flowForm.date} onChange={(e) => setFlowForm({ ...flowForm, date: e.target.value })} className="bg-slate-950 border-slate-800 rounded-none h-9" />
+                                                </div>
+                                                <div className="col-span-3">
+                                                    <Label className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Kind</Label>
+                                                    <Select value={flowForm.kind} onValueChange={(v) => setFlowForm({ ...flowForm, kind: v })}>
+                                                        <SelectTrigger data-testid={`flow-kind-${i.id}`} className="bg-slate-950 border-slate-800 rounded-none h-9"><SelectValue /></SelectTrigger>
+                                                        <SelectContent className="bg-slate-900 border-slate-800 rounded-none">
+                                                            <SelectItem value="call" className="rounded-none focus:bg-slate-800">Capital call</SelectItem>
+                                                            <SelectItem value="distribution" className="rounded-none focus:bg-slate-800">Distribution</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="col-span-4">
+                                                    <Label className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Amount ($)</Label>
+                                                    <Input data-testid={`flow-amount-${i.id}`} type="number" value={flowForm.amount} onChange={(e) => setFlowForm({ ...flowForm, amount: e.target.value })} className="bg-slate-950 border-slate-800 rounded-none h-9 font-mono-data" />
+                                                </div>
+                                                <Button data-testid={`add-flow-${i.id}`} onClick={() => addFlow(i.id)} className="col-span-2 rounded-none h-9 bg-indigo-600 hover:bg-indigo-500 text-white transition-colors duration-150">Add</Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             )}
         </div>

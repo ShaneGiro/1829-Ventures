@@ -4,6 +4,8 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 import os
+import io
+import csv
 import uuid
 import logging
 import bcrypt
@@ -11,7 +13,8 @@ import jwt
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, Query
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, Query, UploadFile, File, Form
+from fastapi.responses import StreamingResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
@@ -247,6 +250,7 @@ class Investment(BaseModel):
     pro_rata: bool = False
     current_value: Optional[float] = None
     notes: Optional[str] = None
+    cash_flows: List[dict] = Field(default_factory=list)  # [{date, amount, kind}]
     created_at: str = Field(default_factory=now_iso)
 
 class InvestmentIn(BaseModel):
@@ -261,6 +265,22 @@ class InvestmentIn(BaseModel):
     pro_rata: bool = False
     current_value: Optional[float] = None
     notes: Optional[str] = None
+
+class InvestmentUpdate(BaseModel):
+    amount: Optional[float] = None
+    round_stage: Optional[str] = None
+    valuation: Optional[float] = None
+    ownership_pct: Optional[float] = None
+    close_date: Optional[str] = None
+    board_seat: Optional[bool] = None
+    pro_rata: Optional[bool] = None
+    current_value: Optional[float] = None
+    notes: Optional[str] = None
+
+class CashFlowIn(BaseModel):
+    date: str
+    amount: float  # negative = capital call, positive = distribution
+    kind: Optional[str] = None  # "call" | "distribution" | "markup"
 
 # -------- Auth Routes --------
 @api_router.post("/auth/register")
@@ -474,13 +494,94 @@ async def list_investments(fund_id: str = Query(...), company_id: Optional[str] 
 @api_router.post("/investments", response_model=Investment)
 async def create_investment(payload: InvestmentIn, user: dict = Depends(get_current_user)):
     inv = Investment(**payload.model_dump())
+    # Seed initial cash flow (capital call) on close_date if provided
+    if inv.close_date:
+        inv.cash_flows = [{"date": inv.close_date, "amount": -abs(inv.amount), "kind": "call"}]
     await db.investments.insert_one(inv.model_dump())
     return inv
+
+@api_router.patch("/investments/{inv_id}", response_model=Investment)
+async def update_investment(inv_id: str, payload: InvestmentUpdate, user: dict = Depends(get_current_user)):
+    updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    result = await db.investments.update_one({"id": inv_id}, {"$set": updates})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Investment not found")
+    doc = await db.investments.find_one({"id": inv_id}, {"_id": 0})
+    return doc
+
+@api_router.post("/investments/{inv_id}/cash-flows", response_model=Investment)
+async def add_cash_flow(inv_id: str, payload: CashFlowIn, user: dict = Depends(get_current_user)):
+    doc = await db.investments.find_one({"id": inv_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Investment not found")
+    flows = doc.get("cash_flows", []) or []
+    flows.append({"date": payload.date, "amount": payload.amount, "kind": payload.kind or ("call" if payload.amount < 0 else "distribution")})
+    flows.sort(key=lambda f: f["date"])
+    await db.investments.update_one({"id": inv_id}, {"$set": {"cash_flows": flows}})
+    updated = await db.investments.find_one({"id": inv_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/investments/{inv_id}/cash-flows/{idx}", response_model=Investment)
+async def remove_cash_flow(inv_id: str, idx: int, user: dict = Depends(get_current_user)):
+    doc = await db.investments.find_one({"id": inv_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Investment not found")
+    flows = doc.get("cash_flows", []) or []
+    if 0 <= idx < len(flows):
+        flows.pop(idx)
+    await db.investments.update_one({"id": inv_id}, {"$set": {"cash_flows": flows}})
+    updated = await db.investments.find_one({"id": inv_id}, {"_id": 0})
+    return updated
 
 @api_router.delete("/investments/{inv_id}")
 async def delete_investment(inv_id: str, user: dict = Depends(get_current_user)):
     await db.investments.delete_one({"id": inv_id})
     return {"ok": True}
+
+# -------- IRR --------
+def _xnpv(rate: float, flows: list) -> float:
+    if not flows:
+        return 0.0
+    t0 = flows[0]["_t"]
+    total = 0.0
+    for f in flows:
+        years = (f["_t"] - t0).days / 365.25
+        total += f["amount"] / ((1 + rate) ** years)
+    return total
+
+def compute_xirr(cash_flows: list) -> Optional[float]:
+    """Newton's method XIRR. cash_flows: [{date, amount}]"""
+    if not cash_flows or len(cash_flows) < 2:
+        return None
+    parsed = []
+    for f in cash_flows:
+        try:
+            parsed.append({"_t": datetime.fromisoformat(f["date"][:10]), "amount": float(f["amount"])})
+        except Exception:
+            return None
+    parsed.sort(key=lambda x: x["_t"])
+    # need at least one negative and one positive flow
+    has_neg = any(p["amount"] < 0 for p in parsed)
+    has_pos = any(p["amount"] > 0 for p in parsed)
+    if not (has_neg and has_pos):
+        return None
+    rate = 0.1
+    for _ in range(80):
+        try:
+            f = _xnpv(rate, parsed)
+            # numerical derivative
+            df = (_xnpv(rate + 1e-6, parsed) - f) / 1e-6
+            if abs(df) < 1e-12:
+                return None
+            new_rate = rate - f / df
+            if abs(new_rate - rate) < 1e-7:
+                return round(new_rate, 6)
+            rate = new_rate
+            if rate <= -0.999:
+                rate = -0.99
+        except Exception:
+            return None
+    return None
 
 # -------- Metrics --------
 @api_router.get("/metrics/portfolio")
@@ -497,6 +598,24 @@ async def portfolio_metrics(fund_id: str = Query(...), user: dict = Depends(get_
     moic = (current_val / deployed) if deployed > 0 else 0
     committed = fund.get("committed_capital", 0) or 0
     dry_powder = max(committed - deployed, 0)
+
+    # Build fund-level cash flow list: existing flows + a synthetic mark-to-market outflow today for open positions
+    all_flows = []
+    today = datetime.now(timezone.utc).date().isoformat()
+    for inv in investments:
+        flows = inv.get("cash_flows") or []
+        if flows:
+            all_flows.extend(flows)
+        else:
+            # Fallback: use close_date as call, current_value as unrealized mark today
+            if inv.get("close_date"):
+                all_flows.append({"date": inv["close_date"], "amount": -abs(inv.get("amount", 0))})
+        # Mark-to-market: add unrealized current_value as positive terminal flow (only if we have investment amount)
+        cv = inv.get("current_value")
+        if cv is not None and cv > 0:
+            all_flows.append({"date": today, "amount": float(cv), "kind": "unrealized_mark"})
+
+    fund_irr = compute_xirr(all_flows) if all_flows else None
 
     stage_breakdown = {}
     for c in companies:
@@ -515,12 +634,198 @@ async def portfolio_metrics(fund_id: str = Query(...), user: dict = Depends(get_
         "dry_powder": dry_powder,
         "current_value": current_val,
         "moic": round(moic, 2),
-        "num_investments": len([i for i in investments]),
+        "irr": fund_irr,
+        "num_investments": len(investments),
         "num_companies": len(companies),
         "num_invested_companies": len([c for c in companies if c.get("stage") == "invested"]),
         "stage_breakdown": stage_breakdown,
         "sector_breakdown": sector_breakdown,
     }
+
+# -------- Dealroom CSV Import --------
+DEALROOM_STAGE_MAP = {
+    "seed": "screening",
+    "series a": "diligence",
+    "series b": "diligence",
+    "series c": "diligence",
+    "series d": "diligence",
+    "growth": "diligence",
+    "mature": "invested",
+    "late growth": "diligence",
+    "early growth": "diligence",
+    "grown": "invested",
+}
+
+def _clean(v: str) -> str:
+    return (v or "").strip()
+
+def _parse_float(v: str) -> Optional[float]:
+    if not v: return None
+    try:
+        return float(str(v).replace(",", "").replace("$", ""))
+    except Exception:
+        return None
+
+@api_router.post("/import/dealroom")
+async def import_dealroom(
+    fund_id: str = Form(...),
+    default_stage: str = Form("sourced"),
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
+):
+    fund = await db.funds.find_one({"id": fund_id})
+    if not fund:
+        raise HTTPException(status_code=404, detail="Fund not found")
+
+    content = await file.read()
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = content.decode("latin-1")
+
+    reader = csv.reader(io.StringIO(text))
+    rows = list(reader)
+
+    # Dealroom exports have 2 metadata rows before the header. Detect the header row by looking for 'Name' as the 2nd column.
+    header_idx = -1
+    for i, r in enumerate(rows[:10]):
+        if len(r) > 1 and r[0].strip().lower() == "id" and r[1].strip().lower() == "name":
+            header_idx = i
+            break
+    if header_idx == -1:
+        # Fallback: assume first row
+        header_idx = 0
+    headers = [h.strip() for h in rows[header_idx]]
+    data_rows = rows[header_idx + 1:]
+
+    def col(row, name):
+        try:
+            idx = headers.index(name)
+            return row[idx] if idx < len(row) else ""
+        except ValueError:
+            return ""
+
+    imported = 0
+    updated = 0
+    skipped = 0
+    errors = []
+
+    for r in data_rows:
+        try:
+            name = _clean(col(r, "Name"))
+            if not name:
+                skipped += 1
+                continue
+
+            dealroom_url = _clean(col(r, "Dealroom URL"))
+            website = _clean(col(r, "Website"))
+            tagline = _clean(col(r, "Tagline"))
+            long_desc = _clean(col(r, "Long description"))
+            industries = _clean(col(r, "Industries"))
+            sub_industries = _clean(col(r, "Sub industries"))
+            hq_city = _clean(col(r, "HQ city"))
+            hq_country = _clean(col(r, "HQ country"))
+            hq = ", ".join([x for x in [hq_city, hq_country] if x])
+            last_round = _clean(col(r, "Last round"))
+            growth_stage = _clean(col(r, "Growth stage")).lower()
+            total_funding = _parse_float(col(r, "Total funding (USD M)"))
+            last_amount = _parse_float(col(r, "Last funding amount"))
+            valuation_usd = _parse_float(col(r, "Valuation (USD)"))
+            investors_names = _clean(col(r, "Investors names"))
+            founders = _clean(col(r, "Founders"))
+            linkedin = _clean(col(r, "LinkedIn"))
+
+            sector = industries.split(";")[0].strip() if industries else (sub_industries.split(";")[0].strip() if sub_industries else None)
+            mapped_stage = DEALROOM_STAGE_MAP.get(growth_stage) or default_stage
+
+            existing = await db.companies.find_one({"fund_id": fund_id, "name": name})
+
+            if existing:
+                updates = {
+                    "sector": sector or existing.get("sector"),
+                    "website": website or existing.get("website"),
+                    "hq": hq or existing.get("hq"),
+                    "one_liner": tagline or existing.get("one_liner"),
+                    "description": long_desc or existing.get("description"),
+                    "round_stage": last_round or existing.get("round_stage"),
+                    "ask_amount": last_amount * 1_000_000 if last_amount and (col(r, "Last funding amount") == col(r, "Last funding amount")) else existing.get("ask_amount"),
+                    "source": "Dealroom",
+                    "dealroom_url": dealroom_url or existing.get("dealroom_url"),
+                    "dealroom_total_funding_usd_m": total_funding,
+                    "dealroom_valuation_usd": valuation_usd,
+                    "dealroom_investors": investors_names,
+                    "dealroom_founders": founders,
+                    "linkedin": linkedin or existing.get("linkedin"),
+                    "updated_at": now_iso(),
+                }
+                updates = {k: v for k, v in updates.items() if v is not None and v != ""}
+                await db.companies.update_one({"id": existing["id"]}, {"$set": updates})
+                updated += 1
+            else:
+                comp = Company(
+                    fund_id=fund_id,
+                    name=name,
+                    sector=sector,
+                    stage=mapped_stage,
+                    website=website or None,
+                    hq=hq or None,
+                    one_liner=tagline or None,
+                    description=long_desc or None,
+                    round_stage=last_round or None,
+                    ask_amount=(last_amount * 1_000_000) if last_amount is not None else None,
+                    source="Dealroom",
+                )
+                doc = comp.model_dump()
+                doc["dealroom_url"] = dealroom_url or None
+                doc["dealroom_total_funding_usd_m"] = total_funding
+                doc["dealroom_valuation_usd"] = valuation_usd
+                doc["dealroom_investors"] = investors_names or None
+                doc["dealroom_founders"] = founders or None
+                doc["linkedin"] = linkedin or None
+                await db.companies.insert_one(doc)
+                imported += 1
+        except Exception as e:
+            errors.append(f"{name if 'name' in locals() else '?'}: {str(e)[:120]}")
+            skipped += 1
+
+    return {"imported": imported, "updated": updated, "skipped": skipped, "errors": errors[:20], "total_rows": len(data_rows)}
+
+# -------- LP Report CSV Export --------
+@api_router.get("/export/lp-report")
+async def export_lp_report(fund_id: str = Query(...), user: dict = Depends(get_current_user)):
+    fund = await db.funds.find_one({"id": fund_id}, {"_id": 0})
+    if not fund:
+        raise HTTPException(status_code=404, detail="Fund not found")
+    investments = await db.investments.find({"fund_id": fund_id}, {"_id": 0}).to_list(1000)
+    companies = {c["id"]: c for c in await db.companies.find({"fund_id": fund_id}, {"_id": 0}).to_list(1000)}
+
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow([f"Fund: {fund['name']}", f"Vintage: {fund.get('vintage','')}", f"Committed: {fund.get('committed_capital',0)}", f"Generated: {now_iso()}"])
+    w.writerow([])
+    w.writerow(["Company", "Sector", "Round", "Amount", "Valuation", "Ownership %", "Close Date", "Current Value", "MOIC", "IRR", "Board Seat", "Pro-rata"])
+    for inv in investments:
+        c = companies.get(inv["company_id"], {})
+        amt = inv.get("amount") or 0
+        cv = inv.get("current_value")
+        moic = (cv / amt) if (amt and cv is not None) else ""
+        irr = compute_xirr(inv.get("cash_flows") or []) if inv.get("cash_flows") else None
+        w.writerow([
+            c.get("name", ""), c.get("sector", ""), inv.get("round_stage", ""),
+            amt, inv.get("valuation", ""), inv.get("ownership_pct", ""),
+            inv.get("close_date", ""), cv if cv is not None else "",
+            round(moic, 2) if isinstance(moic, float) else "",
+            f"{irr*100:.2f}%" if irr is not None else "",
+            "Yes" if inv.get("board_seat") else "No",
+            "Yes" if inv.get("pro_rata") else "No",
+        ])
+    out.seek(0)
+    filename = f"lp-report-{fund['slug']}-{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
+    return StreamingResponse(
+        iter([out.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 # -------- Search --------
 @api_router.get("/search")

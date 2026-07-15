@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useFund } from "@/context/FundContext";
-import { api } from "@/lib/api";
+import { api, API } from "@/lib/api";
 import { PageHeader, EmptyState, formatMoney } from "@/components/ui-primitives";
+import { Button } from "@/components/ui/button";
+import { DownloadSimple } from "@phosphor-icons/react";
 
 export default function Investments() {
     const { activeFund } = useFund();
@@ -30,6 +32,15 @@ export default function Investments() {
                 overline={activeFund?.name}
                 title="Investments"
                 subtitle={`${items.length} rounds · ${formatMoney(totalInvested)} deployed · current mark ${formatMoney(totalCurrent)}`}
+                actions={
+                    activeFund && (
+                        <a href={`${API}/export/lp-report?fund_id=${activeFund.id}`} data-testid="export-investments-csv">
+                            <Button variant="outline" className="rounded-none h-9 border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-200 gap-2 transition-colors duration-150">
+                                <DownloadSimple size={14} /> Export CSV
+                            </Button>
+                        </a>
+                    )
+                }
             />
             {items.length === 0 ? (
                 <div className="p-8"><EmptyState title="No investments recorded" description="Move a company to Invested stage and record the check from its Investment tab." /></div>

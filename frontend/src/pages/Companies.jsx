@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useFund } from "@/context/FundContext";
 import { api } from "@/lib/api";
@@ -9,17 +9,22 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, ArrowRight } from "@phosphor-icons/react";
+import { Plus, ArrowRight, MagnifyingGlass, Upload } from "@phosphor-icons/react";
 import { toast } from "sonner";
+import DealroomImport from "@/components/DealroomImport";
 
 const STAGES = ["sourced", "screening", "diligence", "ic", "invested", "passed"];
+const PAGE_SIZE = 50;
 
 export default function Companies() {
     const { activeFund } = useFund();
     const nav = useNavigate();
     const [companies, setCompanies] = useState([]);
     const [filter, setFilter] = useState("all");
+    const [search, setSearch] = useState("");
+    const [page, setPage] = useState(1);
     const [open, setOpen] = useState(false);
+    const [importOpen, setImportOpen] = useState(false);
     const [form, setForm] = useState({ name: "", sector: "", stage: "sourced", one_liner: "", round_stage: "", ask_amount: "", hq: "", website: "", lead_partner: "", source: "" });
 
     const load = async () => {
@@ -29,6 +34,7 @@ export default function Companies() {
     };
 
     useEffect(() => { load(); }, [activeFund]); // eslint-disable-line
+    useEffect(() => { setPage(1); }, [filter, search, activeFund]);
 
     const create = async () => {
         if (!form.name.trim()) { toast.error("Name is required"); return; }
@@ -48,7 +54,15 @@ export default function Companies() {
         }
     };
 
-    const filtered = filter === "all" ? companies : companies.filter((c) => c.stage === filter);
+    const filtered = useMemo(() => {
+        const bySearch = search
+            ? companies.filter((c) => (c.name || "").toLowerCase().includes(search.toLowerCase()) || (c.sector || "").toLowerCase().includes(search.toLowerCase()) || (c.one_liner || "").toLowerCase().includes(search.toLowerCase()))
+            : companies;
+        return filter === "all" ? bySearch : bySearch.filter((c) => c.stage === filter);
+    }, [companies, filter, search]);
+
+    const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
     const stageCounts = STAGES.reduce((a, s) => ({ ...a, [s]: companies.filter((c) => c.stage === s).length }), {});
 
     return (
@@ -57,8 +71,17 @@ export default function Companies() {
                 testid="companies-header"
                 overline={activeFund?.name}
                 title="Companies"
-                subtitle="Pipeline of sourced, screening, diligence, and invested companies."
+                subtitle={`${companies.length} companies · Pipeline of sourced, screening, diligence, and invested.`}
                 actions={
+                    <div className="flex items-center gap-2">
+                        <Button
+                            data-testid="import-dealroom-button"
+                            onClick={() => setImportOpen(true)}
+                            variant="outline"
+                            className="rounded-none h-9 border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-200 gap-2 transition-colors duration-150"
+                        >
+                            <Upload size={14} /> Import Dealroom
+                        </Button>
                     <Dialog open={open} onOpenChange={setOpen}>
                         <DialogTrigger asChild>
                             <Button data-testid="new-company-button" className="rounded-none h-9 bg-indigo-600 hover:bg-indigo-500 text-white gap-2 transition-colors duration-150">
@@ -98,23 +121,41 @@ export default function Companies() {
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
+                    </div>
                 }
             />
 
-            {/* Stage filters */}
-            <div className="px-6 md:px-8 py-4 border-b border-slate-800 flex gap-2 overflow-x-auto">
-                <StageChip label="All" count={companies.length} active={filter === "all"} onClick={() => setFilter("all")} testid="filter-all" />
-                {STAGES.map((s) => (
-                    <StageChip key={s} label={s} count={stageCounts[s]} active={filter === s} onClick={() => setFilter(s)} testid={`filter-${s}`} />
-                ))}
+            {/* Stage filters + Search */}
+            <div className="px-6 md:px-8 py-4 border-b border-slate-800 flex flex-col md:flex-row gap-3 md:items-center">
+                <div className="flex gap-2 overflow-x-auto">
+                    <StageChip label="All" count={companies.length} active={filter === "all"} onClick={() => setFilter("all")} testid="filter-all" />
+                    {STAGES.map((s) => (
+                        <StageChip key={s} label={s} count={stageCounts[s]} active={filter === s} onClick={() => setFilter(s)} testid={`filter-${s}`} />
+                    ))}
+                </div>
+                <div className="md:ml-auto flex items-center gap-2 border border-slate-800 bg-slate-900 px-3 h-8 w-full md:w-64">
+                    <MagnifyingGlass size={14} className="text-slate-500" />
+                    <input
+                        data-testid="companies-search"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Filter companies…"
+                        className="bg-transparent outline-none text-sm text-slate-100 placeholder:text-slate-600 flex-1"
+                    />
+                </div>
             </div>
 
             {filtered.length === 0 ? (
                 <div className="p-6 md:p-8">
                     <EmptyState
                         title="No companies in view"
-                        description="Add your first sourced company to start building the pipeline."
-                        action={<Button data-testid="empty-new-company" onClick={() => setOpen(true)} className="rounded-none bg-indigo-600 hover:bg-indigo-500">Add company</Button>}
+                        description="Add your first sourced company or import a Dealroom CSV to seed the pipeline."
+                        action={
+                            <div className="flex gap-2">
+                                <Button data-testid="empty-new-company" onClick={() => setOpen(true)} className="rounded-none bg-indigo-600 hover:bg-indigo-500">Add company</Button>
+                                <Button data-testid="empty-import" onClick={() => setImportOpen(true)} variant="outline" className="rounded-none border-slate-800 bg-slate-900 hover:bg-slate-800">Import CSV</Button>
+                            </div>
+                        }
                     />
                 </div>
             ) : (
@@ -124,30 +165,45 @@ export default function Companies() {
                         <div className="col-span-2">Stage</div>
                         <div className="col-span-2">Round</div>
                         <div className="col-span-2 text-right">Ask</div>
-                        <div className="col-span-2">Lead</div>
+                        <div className="col-span-2">Sector</div>
                     </div>
-                    {filtered.map((c) => (
+                    {paged.map((c) => (
                         <button
                             key={c.id}
                             data-testid={`company-row-${c.id}`}
                             onClick={() => nav(`/companies/${c.id}`)}
                             className="w-full grid grid-cols-12 items-center px-6 md:px-8 py-3 border-b border-slate-800 hover:bg-slate-900 transition-colors duration-150 text-left group"
                         >
-                            <div className="col-span-4">
-                                <div className="font-display text-slate-50 tracking-tight">{c.name}</div>
+                            <div className="col-span-4 min-w-0">
+                                <div className="font-display text-slate-50 tracking-tight truncate">{c.name}</div>
                                 {c.one_liner && <div className="text-xs text-slate-500 truncate mt-0.5">{c.one_liner}</div>}
                             </div>
                             <div className="col-span-2"><StagePill stage={c.stage} /></div>
-                            <div className="col-span-2 text-sm text-slate-300 font-mono-data">{c.round_stage || "—"}</div>
+                            <div className="col-span-2 text-sm text-slate-300 font-mono-data truncate">{c.round_stage || "—"}</div>
                             <div className="col-span-2 text-right font-mono-data text-slate-300">{formatMoney(c.ask_amount)}</div>
-                            <div className="col-span-2 flex items-center justify-between text-sm text-slate-300">
-                                <span>{c.lead_partner || "—"}</span>
-                                <ArrowRight size={14} className="text-slate-600 group-hover:text-indigo-400 transition-colors duration-150" />
+                            <div className="col-span-2 flex items-center justify-between text-sm text-slate-300 min-w-0">
+                                <span className="truncate">{c.sector || "—"}</span>
+                                <ArrowRight size={14} className="text-slate-600 group-hover:text-indigo-400 transition-colors duration-150 shrink-0" />
                             </div>
                         </button>
                     ))}
+                    {/* Pagination */}
+                    {pageCount > 1 && (
+                        <div className="flex items-center justify-between px-6 md:px-8 py-3 text-xs text-slate-500">
+                            <span className="font-mono-data">Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}</span>
+                            <div className="flex items-center gap-2">
+                                <button data-testid="page-prev" disabled={page === 1} onClick={() => setPage(page - 1)}
+                                        className="px-3 h-8 border border-slate-800 hover:bg-slate-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors duration-150">Prev</button>
+                                <span className="font-mono-data">{page} / {pageCount}</span>
+                                <button data-testid="page-next" disabled={page === pageCount} onClick={() => setPage(page + 1)}
+                                        className="px-3 h-8 border border-slate-800 hover:bg-slate-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors duration-150">Next</button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
+
+            <DealroomImport open={importOpen} onOpenChange={setImportOpen} fundId={activeFund?.id} onDone={load} />
         </div>
     );
 }

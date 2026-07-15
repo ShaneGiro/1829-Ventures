@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useFund } from "@/context/FundContext";
-import { api } from "@/lib/api";
+import { api, API } from "@/lib/api";
 import { PageHeader, Metric, formatMoney } from "@/components/ui-primitives";
-import { TrendUp, ChartPieSlice, Buildings, CurrencyCircleDollar } from "@phosphor-icons/react";
+import { Button } from "@/components/ui/button";
+import { TrendUp, ChartPieSlice, Buildings, CurrencyCircleDollar, DownloadSimple } from "@phosphor-icons/react";
 
 const STAGE_ORDER = ["sourced", "screening", "diligence", "ic", "invested", "passed"];
 const STAGE_LABEL = { sourced: "Sourced", screening: "Screening", diligence: "Diligence", ic: "IC", invested: "Invested", passed: "Passed" };
@@ -29,6 +30,9 @@ export default function Dashboard() {
         ? Math.min(100, (metrics.deployed_capital / metrics.committed_capital) * 100)
         : 0;
 
+    const irrPct = metrics.irr != null ? (metrics.irr * 100).toFixed(1) + "%" : "—";
+    const exportUrl = `${API}/export/lp-report?fund_id=${activeFund.id}`;
+
     return (
         <div>
             <PageHeader
@@ -36,16 +40,25 @@ export default function Dashboard() {
                 overline={activeFund.name}
                 title="Portfolio Overview"
                 subtitle={`Vintage ${activeFund.vintage || "—"} · Committed ${formatMoney(activeFund.committed_capital)}`}
+                actions={
+                    <a href={exportUrl} data-testid="export-lp-report">
+                        <Button variant="outline" className="rounded-none h-9 border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-200 gap-2 transition-colors duration-150">
+                            <DownloadSimple size={14} /> Export LP Report
+                        </Button>
+                    </a>
+                }
             />
 
             {/* Metrics row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 border-b border-slate-800">
+            <div className="grid grid-cols-2 md:grid-cols-5 border-b border-slate-800">
                 <Metric testid="metric-deployed" label="Deployed Capital" value={formatMoney(metrics.deployed_capital)}
                         sub={`${deploymentPct.toFixed(0)}% of committed`} trend="neutral" />
                 <Metric testid="metric-dry-powder" label="Dry Powder" value={formatMoney(metrics.dry_powder)}
                         sub={`of ${formatMoney(metrics.committed_capital)}`} trend="neutral" />
                 <Metric testid="metric-moic" label="MOIC" value={`${metrics.moic.toFixed(2)}x`}
                         sub={metrics.moic >= 1 ? "at or above cost" : "below cost"} trend={metrics.moic >= 1 ? "up" : "down"} />
+                <Metric testid="metric-irr" label="IRR (XIRR)" value={irrPct}
+                        sub={metrics.irr != null ? "annualized" : "add cash flows"} trend={metrics.irr != null && metrics.irr > 0 ? "up" : metrics.irr != null ? "down" : "neutral"} />
                 <Metric testid="metric-investments" label="Investments" value={String(metrics.num_investments)}
                         sub={`${metrics.num_invested_companies} portfolio cos`} trend="neutral" />
             </div>
