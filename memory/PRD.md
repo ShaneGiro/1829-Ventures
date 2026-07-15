@@ -28,19 +28,23 @@
 - Conversations log (date, channel, attendees, summary, next steps, sentiment)
 - Diligence checklist by category (Legal, Financial, Tech, Market, Team) with status pills
 - Investment records (amount, round, valuation, ownership %, close date, board seat, pro-rata, current mark)
+- **Cash-flow schedule per investment** (capital calls + distributions with add/remove)
+- **Fund-level XIRR** computed via Newton's method over all investment cash flows
 - Contacts CRM (founder / co-investor / LP / advisor) linked to companies
-- Portfolio metrics: deployed capital, dry powder, MOIC, investments count, pipeline & sector breakdown
+- Portfolio metrics: deployed capital, dry powder, MOIC, **IRR**, investments count, pipeline & sector breakdown
 - Global ⌘K search across companies, contacts, conversations
+- **Inline-edit company sidebar fields** (sector, round, ask, HQ, website, lead partner, source)
+- **Dealroom.co CSV import** — upsert-by-name mapping (Name, Website, Tagline, Long description, Industries, HQ, Growth Stage → pipeline stage, Last round/amount, Founders, Investors, Total funding, Valuation, Dealroom profile URL)
+- **Companies search + pagination** (50/page, real-time client filter)
+- **LP report CSV export** — /api/export/lp-report streams a per-fund CSV with company/round/amount/valuation/ownership/close-date/current-value/MOIC/IRR
 - Dark Swiss/Bloomberg-inspired UI (rounded-none, monospace data columns, sharp borders)
 
 ## Backlog (P0 → P2)
-- P0: Editable company fields inline (only description + stage editable today)
-- P0: Editable/deletable investment & contact rows on top-level pages (only delete for contacts today)
 - P1: AI agent integration hooks (webhooks or MCP endpoints for the user's external agent)
-- P1: LP portal / capital call tracking
-- P1: File uploads for pitch decks & term sheets
-- P2: IRR calculation (needs cash flow timing)
-- P2: Board reporting exports (PDF / CSV)
+- P1: PDF export for LP reports (currently CSV only)
+- P1: File uploads for pitch decks & term sheets (deferred by user)
+- P2: LP portal / capital call notifications
+- P2: Board reporting exports
 - P2: Email/calendar integration for conversation auto-logging
 
 ## Test credentials

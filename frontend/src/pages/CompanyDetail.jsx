@@ -207,7 +207,7 @@ function EditableField({ label, value, onSave, mono, testid, placeholder }) {
                     className={`mt-1 w-full bg-slate-900 border border-slate-700 focus:border-indigo-500 outline-none px-2 py-1 text-sm ${mono ? "font-mono-data" : ""} text-slate-100`}
                 />
             ) : (
-                <button data-testid={`edit-${testid}`} onClick={() => setEditing(true)}
+                <button data-testid={testid} onClick={() => setEditing(true)}
                         className={`mt-1 w-full text-left text-sm ${mono ? "font-mono-data" : ""} text-slate-200 hover:text-indigo-300 transition-colors duration-150 py-0.5 border-b border-transparent hover:border-slate-700`}>
                     {value || <span className="text-slate-600">— click to add</span>}
                 </button>
