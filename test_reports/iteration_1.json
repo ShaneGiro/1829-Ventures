@@ -1,0 +1,31 @@
+{
+  "summary": "First-finish smoke testing on Venture Fund CRM. Backend auth + CRUD sanity confirmed via curl; frontend E2E via Playwright covering login (error + success), Overview metrics, fund switcher, create company, filter chips, company detail tabs (all 5), and logout. All critical checks passed.",
+  "tested_scope": ["frontend", "backend", "auth", "integration"],
+  "passed": [
+    "GET /api/auth/me unauth returns 401",
+    "POST /api/auth/login with admin@fund.com/admin123 returns 200 and sets cookies",
+    "POST /api/auth/login wrong password returns 401",
+    "GET /api/auth/me authed returns admin user",
+    "GET /api/funds returns seeded 'Beta Fund' and 'Fund I'",
+    "GET /api/companies unauth returns 401; authed returns 200",
+    "GET /api/metrics/portfolio returns fund + deployed/dry_powder/moic",
+    "POST /api/companies creates a company (200)",
+    "Login page: wrong password shows 'Invalid credentials' via [data-testid=login-error]",
+    "Login success redirects to / (dashboard)",
+    "Dashboard shows metric-deployed, metric-dry-powder, metric-moic, metric-investments",
+    "fund-switcher dropdown lists 'Beta Fund' and 'Fund I'",
+    "Companies page: create via new-company-button + submit-company works; UITestCo appears in list",
+    "filter-all and filter-sourced chips clickable",
+    "Clicking company row opens /companies/:id",
+    "Tabs tab-overview/conversations/diligence/investment/contacts all switch",
+    "Logout via user-menu-trigger -> logout-menu-item redirects to /login"
+  ],
+  "failed": [],
+  "action_items": [
+    "Minor a11y warning: DialogContent missing Description/aria-describedby (non-blocking)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "retest_needed": false,
+  "full_testing_deferred": true,
+  "notes": "Not exhaustively tested (deferred to full testing): register flow, new-conversation/diligence/investment/contact dialogs and their propagation to top-level /investments and /contacts, portfolio metric updates after investment, and ⌘K global search. Core auth + pipeline + navigation loop is green so main agent can proceed to first finish."
+}
