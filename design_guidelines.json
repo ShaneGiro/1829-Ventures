@@ -1,0 +1,146 @@
+{
+  "theme_and_vibe": {
+    "name": "High-Density Swiss Fintech (The 'Carta-Bloomberg' Hybrid)",
+    "archetype": "ARCHETYPE 4: SWISS & HIGH-CONTRAST",
+    "mode": "Dark Theme (Mandatory for power-user financial tools to reduce eye strain)",
+    "description": "A clean, professional, finance-grade dashboard that prioritizes data density, clarity, and authority. It uses sharp edges, explicit grid borders, and a stark monochromatic base with highly intentional, sparse accent colors for momentum and actions. Avoids all 'bubbly' or 'soft' SaaS aesthetics.",
+    "e1_twist": "Color is Function Only. 95% of the UI is strictly grayscale (tinted slate). Accent colors are reserved exclusively for data momentum (positive/negative trends) and primary CTAs. Zero border-radius globally to enforce a rigid, mathematical feel."
+  },
+  "typography": {
+    "strategy": "The 'Old Money Tech' variant: Authoritative Display Headings + Highly legible Sans Body + Sterile Mono for all financial data.",
+    "fonts": {
+      "headings": {
+        "family": "'Chivo', sans-serif",
+        "weights": ["400", "700"],
+        "usage": "Page titles, large structural headers, fund names.",
+        "rules": "Must use tight letter spacing (tracking-tight)."
+      },
+      "body": {
+        "family": "'Inter', sans-serif",
+        "weights": ["400", "500"],
+        "usage": "Standard UI text, descriptions, contact lists."
+      },
+      "metrics_and_data": {
+        "family": "'JetBrains Mono', monospace",
+        "weights": ["400", "500", "600"],
+        "usage": "All numerical data, investment amounts, valuations, dates, table cells.",
+        "rules": "Keeps numbers tabular and vertically aligned."
+      }
+    },
+    "hierarchy_rules": {
+      "H1": "text-3xl sm:text-4xl tracking-tighter font-semibold (Kept smaller than marketing pages to maximize dashboard real estate)",
+      "H2": "text-xl sm:text-2xl tracking-tight",
+      "Overlines": "text-xs tracking-[0.2em] uppercase text-slate-500",
+      "Data_Large": "text-3xl sm:text-4xl font-mono tracking-tight",
+      "Body": "text-sm text-slate-300"
+    },
+    "forbidden_fonts": ["Space Grotesk", "Roboto", "Open Sans", "Lato for headings"]
+  },
+  "colors": {
+    "backgrounds": {
+      "app_bg": "bg-slate-950",
+      "surface": "bg-slate-900",
+      "surface_hover": "bg-slate-800",
+      "surface_active": "bg-slate-700"
+    },
+    "text": {
+      "primary": "text-slate-50",
+      "secondary": "text-slate-400",
+      "muted": "text-slate-500",
+      "inverse": "text-slate-950"
+    },
+    "borders": {
+      "default": "border-slate-800",
+      "focus": "border-indigo-500"
+    },
+    "semantic_accents": {
+      "primary_action": "bg-indigo-600 hover:bg-indigo-500 text-white",
+      "positive_trend": "text-emerald-400 bg-emerald-400/10",
+      "negative_trend": "text-rose-400 bg-rose-400/10",
+      "warning": "text-amber-400 bg-amber-400/10"
+    },
+    "forbidden_colors": ["#1B93A4", "Teal Green", "Teal Blue", "Pure #000000", "Pure #808080"]
+  },
+  "surface_strategies": {
+    "global_rule": "Cardless, Rectangular, Dense. Max 0px border-radius (rounded-none).",
+    "grid_borders": {
+      "concept": "Expose the skeleton. Make the grid visible.",
+      "implementation": "Container uses border-collapse style layout. Items use 'border-r border-b border-slate-800'. No floating cards with soft shadows.",
+      "usage": "Data-heavy dashboard widgets, CRM tables, Portfolio metrics."
+    },
+    "glassmorphism": {
+      "concept": "Optical Clarity for fixed elements.",
+      "implementation": "backdrop-blur-xl bg-slate-950/70 border-b border-slate-800",
+      "usage": "Sticky headers, multi-tenant fund switcher bar."
+    }
+  },
+  "spacing_and_layout": {
+    "dashboard_density": "Mode B: High Density Grid. Every pixel must be utilized. Use tight gaps (gap-4 or gap-px with grid background color).",
+    "containers": "Full-width dashboard layout. Avoid constrained max-width containers for data views. Use p-4 md:p-6 for main padding.",
+    "alignment": "Strict left-alignment for text and inputs. Right-alignment for numerical values in tables to allow decimal scanning.",
+    "pipeline_board": "Kanban style but highly condensed. Horizontal scrolling container, distinct vertical columns with sharp 1px borders."
+  },
+  "key_views_strategy": {
+    "multi_tenant_header": "Global fixed top bar with a stark, brutalist dropdown (Shadcn Select) to switch between 'Beta Fund' and 'Fund I'. Always visible context.",
+    "portfolio_dashboard": "Follow 'North Star' pattern. Top-left quadrant shows 'Deployed Capital'. First row is 4 key metrics (MOIC, IRR, Investments) using JetBrains Mono with Trend momentum indicators. Below: Sector breakdown chart and recent activity.",
+    "companies_pipeline": "Dense tabular or board view. Emphasize 'Stage' with strict color-coded pills (sharp edges, uppercase).",
+    "company_detail": "Progressive disclosure via Tabs (Overview, Conversations, Diligence, Investment, Contacts). Tabs must be sharp, border-bottom style, no pills. Left sidebar for static company info, main right area for the selected tab content.",
+    "diligence_checklist": "Action-oriented. Use a rigid table layout with Shadcn checkboxes. Clear status indicators (Not Started, In Progress, Complete, Blocked)."
+  },
+  "components_customization": {
+    "buttons": "rounded-none, sharp edges. Use hover:-translate-y-[1px] transition-transform. Primary buttons use indigo-600.",
+    "inputs_and_forms": "rounded-none, bg-slate-900 border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500. Left aligned.",
+    "tabs": "Override Shadcn default pills. Use border-b-2 transparent data-[state=active]:border-indigo-500 data-[state=active]:text-slate-50 text-slate-400 bg-transparent rounded-none h-auto py-2.",
+    "tables": "Dense rows. py-2 px-3 cells. Hover state on rows: bg-slate-800/50. Header text: text-xs uppercase tracking-wider text-slate-500.",
+    "badges": "rounded-none border border-slate-700 bg-slate-800/50 text-xs font-mono px-2 py-0.5.",
+    "charts": "Use Recharts (via Shadcn chart). Minimal axes, remove grid lines or make them very faint (slate-800). Monochromatic bars/lines with one accent color."
+  },
+  "motion_and_interactions": {
+    "philosophy": "Minimalist and snappy. No bouncy animations.",
+    "transitions": "Use specific properties: transition-colors duration-150 ease-out for buttons and rows. No 'transition-all'.",
+    "hover_states": "Tables rows must subtly highlight. Interactive elements must lighten on hover (e.g., bg-slate-900 to bg-slate-800). Text contrast must remain high.",
+    "loading": "Use sharp linear progress bars at the top of the container, not circular spinners."
+  },
+  "icons_and_assets": {
+    "library": "@phosphor-icons/react",
+    "installation": "yarn add @phosphor-icons/react",
+    "usage": "Use 'Regular' or 'Light' weight for standard UI, 'Fill' for active states. Keep sizes consistent (16px or 20px). Do not use AI emojis."
+  },
+  "images": {
+    "auth_background": {
+      "url": "https://images.pexels.com/photos/7230895/pexels-photo-7230895.jpeg",
+      "description": "Contemporary building with futuristic design and geometric lines. Used for the Auth/Login screen background side-panel to convey structural integrity and finance."
+    },
+    "empty_state_texture": {
+      "url": "https://images.pexels.com/photos/9701960/pexels-photo-9701960.jpeg",
+      "description": "Modern architectural facade with geometric patterns. Can be used as a very low opacity (10%) background image for empty states (e.g., 'No investments yet')."
+    }
+  },
+  "instructions_to_main_agent": [
+    "DO NOT use generic centered layouts or simplistic gradients.",
+    "DO NOT use HTML-based components for interactions; explicitly use customized Shadcn UI components.",
+    "DO NOT apply 'transition-all' anywhere in the CSS.",
+    "DO NOT use pure black (#000) or pure white (#fff) for large surfaces. Use slate-950 and slate-50.",
+    "DO NOT use borders with rounded corners. Enforce rounded-none everywhere to match the brutalist finance style.",
+    "MUST use 'data-testid' on all interactive elements (buttons, inputs, tabs, table rows) using kebab-case and role-based naming.",
+    "MUST ensure numerical data and tables use the monospace font 'JetBrains Mono'.",
+    "MUST explicitly set text color on hover states (e.g., hover:bg-slate-800 hover:text-slate-50).",
+    "MUST place the fund context switcher prominently in a sticky header.",
+    "For global search, implement a cmdk/command menu (Shadcn Command) accessible via a keyboard shortcut."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur) for sticky navs/headers.",
+    "You MUST NOT apply universal transition. Eg: `transition: all`.",
+    "You MUST NOT center align the app container, ie do not add `.App { text-align: center; }` in the css file.",
+    "NEVER use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap (except in dense data tables).",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations separate good from extraordinary.",
+    "Prioritize using pre-existing components from src/components/ui when applicable.",
+    "Use `sonner` for toasts, located in `/app/src/components/ui/sonner.tsx`."
+  ]
+}
